@@ -398,7 +398,7 @@ app = FastAPI()
 # Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 SMS_KEY = os.getenv('SMS_KEY')
-PORT = int(os.getenv('PORT', 8010))
+PORT = int(os.getenv('PORT', 5000))
 SMS_URL = "https://www.fast2sms.com/dev/bulkV2"
 
 # Current date and time
@@ -467,9 +467,9 @@ async def index_page():
 async def handle_incoming_call(request: Request):
     """Handle incoming internship inquiry calls"""
     response = VoiceResponse()
-    response.say("Thank you for calling INFOLABZ.", voice=VOICE)
+    response.say("Thank you for calling  at infolabz.", voice=VOICE)
     response.pause(length=1)
-    response.say("I'm your virtual assistant for our aicte approved internship program.", voice=VOICE)
+    response.say("I'm your virtual assistant for our internship program.", voice=VOICE)
     response.pause(length=1)
     response.say("Please tell me how I can help you today.", voice=VOICE)
     
@@ -505,6 +505,7 @@ async def handle_media_stream(websocket: WebSocket):
             nonlocal stream_sid, latest_media_timestamp
             try:
                 async for message in websocket.iter_text():
+                    print("sdfjdsbfvds: ",message)
                     data = json.loads(message)
                     if data['event'] == 'media' and openai_ws.open:
                         latest_media_timestamp = int(data['media']['timestamp'])
