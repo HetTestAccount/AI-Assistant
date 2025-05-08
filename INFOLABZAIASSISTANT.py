@@ -108,9 +108,9 @@ async def handle_incoming_call(request: Request):
     response.pause(length=1)
     response.say("Please tell me how I can help you today.", voice=VOICE)
     
-    host = "api.infolabz.com"  
+    host = "192.168.0.28"  
     connect = Connect()
-    connect.stream(url=f'wss://{host}/media-stream')
+    connect.stream(url=f'ws://{host}/media-stream')
     response.append(connect)
     return HTMLResponse(content=str(response), media_type="application/xml")
 
