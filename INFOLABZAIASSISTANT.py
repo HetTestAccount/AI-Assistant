@@ -110,7 +110,7 @@ async def handle_incoming_call(request: Request):
     
     host = "ai-assistant-vftu.onrender.com"  
     connect = Connect()
-    connect.stream(url=f'ws://{host}/media-stream')
+    connect.stream(url=f'wss://{host}/media-stream')
     response.append(connect)
     return HTMLResponse(content=str(response), media_type="application/xml")
 
