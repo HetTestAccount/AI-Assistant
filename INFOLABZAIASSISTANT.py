@@ -507,6 +507,7 @@ async def handle_media_stream(websocket: WebSocket):
                 async for message in websocket.iter_text():
                     print("sdfjdsbfvds: ",message)
                     data = json.loads(message)
+                    print("Media event received:", data)
                     if data['event'] == 'media' and openai_ws.open:
                         latest_media_timestamp = int(data['media']['timestamp'])
                         audio_append = {
