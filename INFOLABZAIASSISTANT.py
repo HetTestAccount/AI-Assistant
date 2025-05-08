@@ -108,7 +108,7 @@ async def handle_incoming_call(request: Request):
     response.pause(length=1)
     response.say("Please tell me how I can help you today.", voice=VOICE)
     
-    host = "ai-assistant-vftu.onrender.com"  
+    host = "api.infolabz.com"  
     connect = Connect()
     connect.stream(url=f'wss://{host}/media-stream')
     response.append(connect)
