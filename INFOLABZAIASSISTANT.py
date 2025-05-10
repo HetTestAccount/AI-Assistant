@@ -441,8 +441,8 @@ Behavior Guidelines:
 6. Maintain professional yet student-friendly tone
 """
 
-# VOICE = 'alloy'
-VOICE = 'Polly.Raveena'
+VOICE = 'alloy'
+# VOICE = 'Polly.Raveena'
 LOG_EVENT_TYPES = [
     'error', 'response.content.done', 'rate_limits.updated',
     'response.done', 'input_audio_buffer.committed',
