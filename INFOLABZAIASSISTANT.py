@@ -868,7 +868,7 @@ async def handle_media_stream(websocket: WebSocket):
                 collected_data["duration"] = text.split()[0].strip()
 
             if all_fields_filled(collected_data) and not submitted:
-                handle_user_submission(collected_data)
+                await handle_user_submission(collected_data)
                 submitted = True
 
         async def receive_from_twilio():
@@ -1032,7 +1032,7 @@ async def save_conversation_to_db(user_id, message):
         "timestamp": datetime.now()
     })
 
-def save_user_to_google_sheet(data):
+async def save_user_to_google_sheet(data):
     worksheet.append_row([
         data["name"],
         f'{data["phone"]} / {data["email"]}',
@@ -1043,7 +1043,7 @@ def save_user_to_google_sheet(data):
         data["start_date"]
     ])
 
-def notify_user(data):
+async def notify_user(data):
     message = f"""Hello {data['name']},
 
 Thank you for applying for the internship at Infolabz!
@@ -1086,10 +1086,10 @@ Infolabz Team"""
         server.login(EMAIL_USER, EMAIL_PASSWORD)
         server.send_message(email)
 
-def handle_user_submission(user_data):
+async def handle_user_submission(user_data):
     user_collection.insert_one(user_data)
-    save_user_to_google_sheet(user_data)
-    notify_user(user_data)
+    await save_user_to_google_sheet(user_data)
+    await notify_user(user_data)
 
 
 if __name__ == "__main__":
