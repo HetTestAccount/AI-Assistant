@@ -711,9 +711,12 @@ user_collection = db["user_details"]
 
 # Google Sheets Setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-credentials = ServiceAccountCredentials.from_json_keyfile_name("google-credentials.json", scope)
+# credentials = ServiceAccountCredentials.from_json_keyfile_name("extreme-lattice-459811-a1-031fbed6004a.json", scope)
+credentials_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
 gs_client = gspread.authorize(credentials)
-sheet = gs_client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).sheet1
+sheet = gs_client.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
+worksheet = sheet.worksheet("Test") 
 
 # Twilio Setup
 twilio_client = TwilioClient(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
@@ -1030,7 +1033,7 @@ async def save_conversation_to_db(user_id, message):
     })
 
 def save_user_to_google_sheet(data):
-    sheet.append_row([
+    worksheet.append_row([
         data["name"],
         f'{data["phone"]} / {data["email"]}',
         data["institution"],
