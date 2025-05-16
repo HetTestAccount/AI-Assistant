@@ -856,7 +856,7 @@ async def handle_media_stream(websocket: WebSocket):
                             "type": "input_audio_buffer.append",
                             "audio": data['media']['payload']
                         }))
-                        print("Media Data: ",data['media']['playload'])
+                        print("Media Data: ",data)
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
                     elif data['event'] == 'mark':
