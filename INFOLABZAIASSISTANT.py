@@ -849,17 +849,21 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
+                    print("All Data Received From the twilio web socket: ",data)
                     if data['event'] == 'media' and openai_ws.open:
                         latest_media_timestamp = int(data['media']['timestamp'])
                         await openai_ws.send(json.dumps({
                             "type": "input_audio_buffer.append",
                             "audio": data['media']['payload']
                         }))
+                        print("Media Data: ",data['media']['playload'])
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
                     elif data['event'] == 'mark':
                         if mark_queue: mark_queue.pop(0)
                     elif data['event'] == 'user-message':
+                        if data.get("type") == "transcript":
+                            print(f"[USER SAID]: {data['transcript']['text']}")
                         await process_user_message(data['user-message']['text'])
                         await save_conversation_to_db(stream_sid, data['user-message']['text'])
             except WebSocketDisconnect:
@@ -872,6 +876,7 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
+                    print("Bot Response: ",response)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         await websocket.send_json({
                             "event": "media",
