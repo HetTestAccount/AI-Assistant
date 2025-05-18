@@ -725,6 +725,44 @@ current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
 
+# SYSTEM_MESSAGE = f"""
+# I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
+
+# Key Information:
+# - Internship Domains:
+#   1. Web Development (React, Django)
+#   2. Mobile App Development (Flutter, Android)
+#   3. Custom Software Solutions
+#   4. IoT Development
+#   5. UI/UX Design
+#   6. Data Science & Machine Learning
+
+# Application Requirements:
+# - Must be enrolled in BCA/MCA/Diploma/Degree program
+# - Basic programming knowledge preferred
+# - Duration options: 3 or 6 months
+
+# Required Details:
+# 1. Full Name
+# 2. Contact Information (Phone/Email)
+# 3. Educational Institution
+# 4. Current Year/Semester
+# 5. Preferred Internship Domain
+# 6. Technical Skills
+# 7. Preferred Start Date
+
+# Process Flow:
+# 1. Eligibility verification
+# 2. Domain selection guidance
+# 3. Application collection
+# 4. Screening call scheduling
+# 5. Final confirmation
+
+# Current Date: {current_date}
+# Current Time: {current_time}
+# """
+
+
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
 
@@ -742,7 +780,7 @@ Application Requirements:
 - Basic programming knowledge preferred
 - Duration options: 3 or 6 months
 
-Required Details:
+Required Details (to be collected upon eligibility confirmation):
 1. Full Name
 2. Contact Information (Phone/Email)
 3. Educational Institution
@@ -754,9 +792,12 @@ Required Details:
 Process Flow:
 1. Eligibility verification
 2. Domain selection guidance
-3. Application collection
-4. Screening call scheduling
-5. Final confirmation
+3. If eligible and interested, collect required details
+4. Show collected details back to the user for confirmation:
+   - Ask: "Please confirm if the following information is correct (Yes/No)."
+   - If user confirms it's correct, proceed to step 5
+   - If not, allow user to edit incorrect fields
+5. Final confirmation of the details and Team will contact you soon regarding the next steps.
 
 Current Date: {current_date}
 Current Time: {current_time}
@@ -849,14 +890,13 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
-                    print("All Data Received From the twilio web socket: ",data)
                     if data['event'] == 'media' and openai_ws.open:
+                        print("Media Data This Print was added by me: ",data['media'])
                         latest_media_timestamp = int(data['media']['timestamp'])
                         await openai_ws.send(json.dumps({
                             "type": "input_audio_buffer.append",
                             "audio": data['media']['payload']
                         }))
-                        print("Media Data: ",data)
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
                     elif data['event'] == 'mark':
@@ -876,7 +916,7 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
-                    print("Bot Response: ",response)
+                    print("Bot Response: ", response)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         await websocket.send_json({
                             "event": "media",
