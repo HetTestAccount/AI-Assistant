@@ -726,44 +726,6 @@ current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
 
-# SYSTEM_MESSAGE = f"""
-# I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
-
-# Key Information:
-# - Internship Domains:
-#   1. Web Development (React, Django)
-#   2. Mobile App Development (Flutter, Android)
-#   3. Custom Software Solutions
-#   4. IoT Development
-#   5. UI/UX Design
-#   6. Data Science & Machine Learning
-
-# Application Requirements:
-# - Must be enrolled in BCA/MCA/Diploma/Degree program
-# - Basic programming knowledge preferred
-# - Duration options: 3 or 6 months
-
-# Required Details:
-# 1. Full Name
-# 2. Contact Information (Phone/Email)
-# 3. Educational Institution
-# 4. Current Year/Semester
-# 5. Preferred Internship Domain
-# 6. Technical Skills
-# 7. Preferred Start Date
-
-# Process Flow:
-# 1. Eligibility verification
-# 2. Domain selection guidance
-# 3. Application collection
-# 4. Screening call scheduling
-# 5. Final confirmation
-
-# Current Date: {current_date}
-# Current Time: {current_time}
-# """
-
-
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
 
@@ -781,7 +743,7 @@ Application Requirements:
 - Basic programming knowledge preferred
 - Duration options: 3 or 6 months
 
-Required Details (to be collected upon eligibility confirmation):
+Required Details:
 1. Full Name
 2. Contact Information (Phone/Email)
 3. Educational Institution
@@ -793,16 +755,51 @@ Required Details (to be collected upon eligibility confirmation):
 Process Flow:
 1. Eligibility verification
 2. Domain selection guidance
-3. If eligible and interested, collect required details
-4. Show collected details back to the user for confirmation:
-   - Ask: "Please confirm if the following information is correct (Yes/No)."
-   - If user confirms it's correct, proceed to step 5
-   - If not, allow user to edit incorrect fields
-5. Final confirmation of the details and Team will contact you soon regarding the next steps.
+3. Application collection
+4. Verify the users details 
+5. Final confirmation
 
 Current Date: {current_date}
 Current Time: {current_time}
 """
+
+
+# SYSTEM_MESSAGE = f"""
+# I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
+
+# Key Information:
+# - Internship Domains:
+#   1. Web Development (React, Django)
+#   2. Mobile App Development (Flutter, Android)
+#   3. Custom Software Solutions
+#   4. IoT Development
+#   5. UI/UX Design
+#   6. Data Science & Machine Learning
+
+# Application Requirements:
+# - Must be enrolled in BCA/MCA/Diploma/Degree program
+# - Basic programming knowledge preferred
+# - Duration options: 3 or 6 months
+
+# Required Details (to be collected upon eligibility confirmation):
+# 1. Full Name
+# 2. Contact Information (Phone/Email)
+# 3. Educational Institution
+# 4. Current Year/Semester
+# 5. Preferred Internship Domain
+# 6. Technical Skills
+# 7. Preferred Start Date
+
+# Process Flow:
+# 1. Eligibility verification
+# 2. Domain selection guidance
+# 3. If eligible and interested, collect required details
+# 4. Show collected details back to the user for confirmation:
+# 5. Final confirmation of the details and Team will contact you soon regarding the next steps.
+
+# Current Date: {current_date}
+# Current Time: {current_time}
+# """
 
 VOICE = 'alloy'
 LOG_EVENT_TYPES = [
@@ -822,7 +819,7 @@ async def index_page():
 @app.api_route("/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(request: Request):
     response = VoiceResponse()
-    response.say("Please wait while we connect your call to the AI voice assistant, powered by Infolabz", language='en-IN')
+    response.say("Please wait while we connect your call to the AI voice assistant.", language='en-IN')
     host = request.url.hostname
     connect = Connect()
     connect.stream(url=f'wss://{host}/media-stream')
