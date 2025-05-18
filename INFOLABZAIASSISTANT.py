@@ -692,6 +692,7 @@ import gspread
 from twilio.rest import Client as TwilioClient
 import smtplib
 from email.message import EmailMessage
+import re
 
 load_dotenv()
 
@@ -862,26 +863,68 @@ async def handle_media_stream(websocket: WebSocket):
         async def process_user_message(text):
             nonlocal submitted
             text_lower = text.lower()
-            if "name is" in text_lower:
-                collected_data["name"] = text.split("is")[-1].strip()
-            elif "email" in text_lower:
-                collected_data["email"] = text.split()[-1].strip()
-            elif "phone" in text_lower or "contact" in text_lower:
-                collected_data["phone"] = ''.join(filter(str.isdigit, text))
-            elif "institution" in text_lower or "college" in text_lower:
+            # if "name is" in text_lower:
+            #     collected_data["name"] = text.split("is")[-1].strip()
+            # elif "email" in text_lower:
+            #     collected_data["email"] = text.split()[-1].strip()
+            # elif "phone" in text_lower or "contact" in text_lower:
+            #     collected_data["phone"] = ''.join(filter(str.isdigit, text))
+            # elif "institution" in text_lower or "college" in text_lower:
+            #     collected_data["institution"] = text.split()[-1].strip()
+            # elif "semester" in text_lower or "year" in text_lower:
+            #     collected_data["semester"] = text.split()[-1].strip()
+            # elif "domain" in text_lower:
+            #     collected_data["domain"] = text.split("domain")[-1].strip()
+            # elif "skill" in text_lower:
+            #     collected_data["skills"] = text.split("skill")[-1].strip()
+            # elif "start date" in text_lower or "from" in text_lower:
+            #     collected_data["start_date"] = text.split()[-1].strip()
+            # elif "month" in text_lower or "duration" in text_lower:
+            #     collected_data["duration"] = text.split()[0].strip()
+            # Name
+            match = re.search(r"(my name is|i am)\s+([a-zA-Z ]+)", text_lower)
+            if match:
+                collected_data["name"] = match.group(2).strip()
+
+            # Email
+            match = re.search(r"[\w\.-]+@[\w\.-]+", text)
+            if match:
+                collected_data["email"] = match.group(0).strip()
+
+            # Phone
+            match = re.search(r"\b\d{10}\b", text)
+            if match:
+                collected_data["phone"] = match.group(0).strip()
+
+            # Institution
+            if "institution" in text_lower or "college" in text_lower:
                 collected_data["institution"] = text.split()[-1].strip()
-            elif "semester" in text_lower or "year" in text_lower:
-                collected_data["semester"] = text.split()[-1].strip()
-            elif "domain" in text_lower:
+
+            # Semester
+            match = re.search(r"(semester|year)\s+(\w+)", text_lower)
+            if match:
+                collected_data["semester"] = match.group(2).strip()
+
+            # Domain
+            if "domain" in text_lower:
                 collected_data["domain"] = text.split("domain")[-1].strip()
-            elif "skill" in text_lower:
+
+            # Skills
+            if "skill" in text_lower:
                 collected_data["skills"] = text.split("skill")[-1].strip()
-            elif "start date" in text_lower or "from" in text_lower:
-                collected_data["start_date"] = text.split()[-1].strip()
-            elif "month" in text_lower or "duration" in text_lower:
-                collected_data["duration"] = text.split()[0].strip()
+
+            # Start Date
+            match = re.search(r"(start date|from)\s+(\w+)", text_lower)
+            if match:
+                collected_data["start_date"] = match.group(2).strip()
+
+            # Duration
+            match = re.search(r"(duration|month)\s+(\w+)", text_lower)
+            if match:
+                collected_data["duration"] = match.group(2).strip()
 
             if all_fields_filled(collected_data) and not submitted:
+                print("🔥 Final Data to Submit:", collected_data)
                 await handle_user_submission(collected_data)
                 submitted = True
 
@@ -924,6 +967,9 @@ async def handle_media_stream(websocket: WebSocket):
                             "media": {"payload": base64.b64encode(base64.b64decode(response['delta'])).decode()}
                         })
                         if response.get("item_id"): last_assistant_item = response["item_id"]
+                        if response.get('type') == 'response.text':
+                            bot_text = response['text']
+                            await save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text}")
                         if response_start_timestamp_twilio is None:
                             response_start_timestamp_twilio = latest_media_timestamp
                         await send_mark(websocket, stream_sid)
@@ -1028,9 +1074,9 @@ async def initialize_session(openai_ws):
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
             "voice": VOICE,
-            "instructions": SYSTEM_MESSAGE,
+            "instructions": SYSTEM_MESSAGE + "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
             "modalities": ["text", "audio"],
-            "temperature": 0.9,
+            "temperature": 0.8,
         }
     }))
 
