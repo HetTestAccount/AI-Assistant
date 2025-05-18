@@ -835,7 +835,7 @@ async def handle_media_stream(websocket: WebSocket):
     print("Client connected.")
 
     async with websockets.connect(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
+        'wss://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17',
         extra_headers={
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "OpenAI-Beta": "realtime=v1"
