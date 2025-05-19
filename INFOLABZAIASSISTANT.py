@@ -804,7 +804,7 @@ Current Time: {current_time}
 VOICE = 'alloy'
 LOG_EVENT_TYPES = [
     'error', 'response.content.done', 'rate_limits.updated',
-    'response.done', 'input_audio_buffer.committed',
+    'response.done', 'input_audio_buffer.committed', 'conversation.item.retrived','conversation.item.input_audio_transcription.completed',
     'input_audio_buffer.speech_stopped', 'input_audio_buffer.speech_started',
     'session.created'
 ]
@@ -930,8 +930,8 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
+                    print("Media Data This Print was added by me: ",data)
                     if data['event'] == 'media' and openai_ws.open:
-                        print("Media Data This Print was added by me: ",data)
                         latest_media_timestamp = int(data['media']['timestamp'])
                         await openai_ws.send(json.dumps({
                             "type": "input_audio_buffer.append",
@@ -941,11 +941,11 @@ async def handle_media_stream(websocket: WebSocket):
                         stream_sid = data['start']['streamSid']
                     elif data['event'] == 'mark':
                         if mark_queue: mark_queue.pop(0)
-                    elif data['event'] == 'user-message':
-                        if data.get("type") == "transcript":
-                            print(f"[USER SAID]: {data['transcript']['text']}")
-                        await process_user_message(data['user-message']['text'])
-                        await save_conversation_to_db(stream_sid, data['user-message']['text'])
+                    # elif data['event'] == 'user-message':
+                    #     if data.get("type") == "transcript":
+                    #         print(f"[USER SAID]: {data['transcript']['text']}")
+                    #     await process_user_message(data['user-message']['text'])
+                    #     await save_conversation_to_db(stream_sid, data['user-message']['text'])
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
@@ -957,6 +957,8 @@ async def handle_media_stream(websocket: WebSocket):
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
                     print("Bot Response: ", response)
+                    if response['type'] in LOG_EVENT_TYPES:
+                        print(f"Received event: {response['type']}", response)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         await websocket.send_json({
                             "event": "media",
@@ -964,27 +966,27 @@ async def handle_media_stream(websocket: WebSocket):
                             "media": {"payload": base64.b64encode(base64.b64decode(response['delta'])).decode()}
                         })
                         if response.get("item_id"): last_assistant_item = response["item_id"]
-                        if response.get('type') == 'conversation.item.input_audio_transcription.completed':
-                                    user_text = response['transcript']
-                                    print("[USER SAID]:", user_text)
-                                    await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
-                                    await process_user_message(user_text)
-                        if response.get('type') == 'conversation.item.retrived':
-                                    user_text = response['item']['content'][0]['transcript']
-                                    print("[USER SAID]:", user_text)
-                                    await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
-                                    await process_user_message(user_text)
-                        if response.get('type') == 'response.audio_transcript.delta':
-                                    bot_text = response['delta']
-                                    print("[BOT SAID WORD BY WORD]:", bot_text)
-                        if response.get('type') == 'response.done':
-                                    bot_text = response['output'][0]['content'][0]['transcript']
-                                    print("[BOT SAID WHOLE TEXT]:", bot_text)
-                                    await save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text}")
                         if response_start_timestamp_twilio is None:
                             response_start_timestamp_twilio = latest_media_timestamp
                         await send_mark(websocket, stream_sid)
-                    elif response.get("type") == "input_audio_buffer.speech_started":
+                    if response.get('type') == 'conversation.item.input_audio_transcription.completed':
+                                user_text = response['transcript']
+                                print("[USER SAID]:", user_text)
+                                await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
+                                await process_user_message(user_text)
+                    if response.get('type') == 'conversation.item.retrived':
+                                user_text = response['item']['content'][0]['transcript']
+                                print("[USER SAID]:", user_text)
+                                await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
+                                await process_user_message(user_text)
+                    if response.get('type') == 'response.audio_transcript.delta':
+                                bot_text = response['delta']
+                                print("[BOT SAID WORD BY WORD]:", bot_text)
+                    if response.get('type') == 'response.done':
+                                bot_text = response['output'][0]['content'][0]['transcript']
+                                print("[BOT SAID WHOLE TEXT]:", bot_text)
+                                await save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text}")
+                    if response.get("type") == "input_audio_buffer.speech_started":
                         await handle_speech_started_event()
             except Exception as e:
                 print("Error:", e)
