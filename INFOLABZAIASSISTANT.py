@@ -970,12 +970,14 @@ async def handle_media_stream(websocket: WebSocket):
                             response_start_timestamp_twilio = latest_media_timestamp
                         await send_mark(websocket, stream_sid)
                     if response.get('type') == 'conversation.item.input_audio_transcription.completed':
+                                print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
                                 user_text = response['transcript']
                                 print("[USER SAID]:", user_text)
                                 await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
                                 await process_user_message(user_text)
                     if response.get('type') == 'conversation.item.retrived':
                                 user_text = response['item']['content'][0]['transcript']
+                                print("[USER SAID IN RESPONSE]:", response)
                                 print("[USER SAID]:", user_text)
                                 await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
                                 await process_user_message(user_text)
