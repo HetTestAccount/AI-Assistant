@@ -983,9 +983,11 @@ async def handle_media_stream(websocket: WebSocket):
                                 bot_text = response['delta']
                                 print("[BOT SAID WORD BY WORD]:", bot_text)
                     if response.get('type') == 'response.done':
-                                bot_text = response['output'][0]['content'][0]['transcript']
-                                print("[BOT SAID WHOLE TEXT]:", bot_text)
-                                await save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text}")
+                                bot_text1 = response['output'][0]['content'][0]['transcript']
+                                bot_text2 = response['response']['output'][0]['content'][0]['transcript']
+                                print("[BOT SAID WHOLE TEXT 1]:", bot_text1)
+                                print("[BOT SAID WHOLE TEXT 2]:", bot_text2)
+                                await save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text2}")
                     if response.get("type") == "input_audio_buffer.speech_started":
                         await handle_speech_started_event()
             except Exception as e:
