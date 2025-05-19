@@ -384,297 +384,6 @@
 
 ###########  INFOLABZ AI ASSISTANT WORKING CODE [without sms,email,googlesheet,wp]   ###########
 
-# import os
-# import json
-# import base64
-# import asyncio
-# import websockets
-# from fastapi import FastAPI, WebSocket, Request
-# from fastapi.responses import HTMLResponse, JSONResponse
-# from fastapi.websockets import WebSocketDisconnect
-# from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
-# from dotenv import load_dotenv
-# from datetime import datetime
-
-# load_dotenv()
-
-# # Configuration
-# OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-# PORT = int(os.getenv('PORT', 5050))
-
-# # # Current date and time
-# current_datetime = datetime.now()
-# current_date = current_datetime.strftime("%d-%m-%Y")
-# current_time = current_datetime.strftime("%I:%M %p")
-# SYSTEM_MESSAGE = f"""
-# I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
-
-# Key Information:
-# - Internship Domains:
-#   1. Web Development (React, Django)
-#   2. Mobile App Development (Flutter, Android)
-#   3. Custom Software Solutions
-#   4. IoT Development
-#   5. UI/UX Design
-#   6. Data Science & Machine Learning
-
-# Application Requirements:
-# - Must be enrolled in BCA/MCA/Diploma/Degree program
-# - Basic programming knowledge preferred
-# - Duration options: 3 or 6 months
-
-# Required Details:
-# 1. Full Name
-# 2. Contact Information (Phone/Email)
-# 3. Educational Institution
-# 4. Current Year/Semester
-# 5. Preferred Internship Domain
-# 6. Technical Skills
-# 7. Preferred Start Date
-
-# Process Flow:
-# 1. Eligibility verification
-# 2. Domain selection guidance
-# 3. Application collection
-# 4. Screening call scheduling
-# 5. Final confirmation
-
-# Current Date: {current_date}
-# Current Time: {current_time}
-
-# Behavior Guidelines:
-# 1. Always verify educational status first
-# 2. Explain AICTE benefits clearly
-# 3. Provide real project examples when discussing domains
-# 4. Be encouraging but realistic about expectations
-# 5. For technical queries, reference our actual tech stack
-# 6. Maintain professional yet student-friendly tone
-# """
-
-# VOICE = 'alloy'
-# # VOICE = 'Polly.Raveena'
-# LOG_EVENT_TYPES = [
-#     'error', 'response.content.done', 'rate_limits.updated',
-#     'response.done', 'input_audio_buffer.committed',
-#     'input_audio_buffer.speech_stopped', 'input_audio_buffer.speech_started',
-#     'session.created'
-# ]
-# SHOW_TIMING_MATH = False
-
-# app = FastAPI()
-
-# if not OPENAI_API_KEY:
-#     raise ValueError('Missing the OpenAI API key. Please set it in the .env file.')
-
-# @app.get("/", response_class=JSONResponse)
-# async def index_page():
-#     return {"message": "Twilio Media Stream Server is running!"}
-
-# @app.api_route("/incoming-call", methods=["GET", "POST"])
-# async def handle_incoming_call(request: Request):
-#     """Handle incoming call and return TwiML response to connect to Media Stream."""
-#     response = VoiceResponse()
-#     # <Say> punctuation to improve text-to-speech flow
-#     response.say("Please wait while we connect your call to the A. I. voice assistant, powered by infolabz",language='en-IN')
-#     response.pause(length=1)
-#     host = request.url.hostname
-#     connect = Connect()
-#     connect.stream(url=f'wss://{host}/media-stream')
-#     response.append(connect)
-#     return HTMLResponse(content=str(response), media_type="application/xml")
-
-# @app.websocket("/media-stream")
-# async def handle_media_stream(websocket: WebSocket):
-#     """Handle WebSocket connections between Twilio and OpenAI."""
-#     print("Client connected")
-#     await websocket.accept()
-
-#     async with websockets.connect(
-#         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
-#         extra_headers={
-#             "Authorization": f"Bearer {OPENAI_API_KEY}",
-#             "OpenAI-Beta": "realtime=v1"
-#         }
-#     ) as openai_ws:
-#         await initialize_session(openai_ws)
-
-#         # Connection specific state
-#         stream_sid = None
-#         latest_media_timestamp = 0
-#         last_assistant_item = None
-#         mark_queue = []
-#         response_start_timestamp_twilio = None
-        
-#         async def receive_from_twilio():
-#             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
-#             nonlocal stream_sid, latest_media_timestamp
-#             try:
-#                 async for message in websocket.iter_text():
-#                     data = json.loads(message)
-#                     if data['event'] == 'media' and openai_ws.open:
-#                         latest_media_timestamp = int(data['media']['timestamp'])
-#                         audio_append = {
-#                             "type": "input_audio_buffer.append",
-#                             "audio": data['media']['payload']
-#                         }
-#                         await openai_ws.send(json.dumps(audio_append))
-#                     elif data['event'] == 'start':
-#                         stream_sid = data['start']['streamSid']
-#                         print(f"Incoming stream has started {stream_sid}")
-#                         response_start_timestamp_twilio = None
-#                         latest_media_timestamp = 0
-#                         last_assistant_item = None
-#                     elif data['event'] == 'mark':
-#                         if mark_queue:
-#                             mark_queue.pop(0)
-#             except WebSocketDisconnect:
-#                 print("Client disconnected.")
-#                 if openai_ws.open:
-#                     await openai_ws.close()
-
-#         async def send_to_twilio():
-#             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
-#             nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
-#             try:
-#                 async for openai_message in openai_ws:
-#                     response = json.loads(openai_message)
-#                     if response['type'] in LOG_EVENT_TYPES:
-#                         print(f"Received event: {response['type']}", response)
-
-#                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
-#                         audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
-#                         audio_delta = {
-#                             "event": "media",
-#                             "streamSid": stream_sid,
-#                             "media": {
-#                                 "payload": audio_payload
-#                             }
-#                         }
-#                         await websocket.send_json(audio_delta)
-
-#                         if response_start_timestamp_twilio is None:
-#                             response_start_timestamp_twilio = latest_media_timestamp
-#                             if SHOW_TIMING_MATH:
-#                                 print(f"Setting start timestamp for new response: {response_start_timestamp_twilio}ms")
-
-#                         # Update last_assistant_item safely
-#                         if response.get('item_id'):
-#                             last_assistant_item = response['item_id']
-
-#                         await send_mark(websocket, stream_sid)
-
-#                     # Trigger an interruption. Your use case might work better using `input_audio_buffer.speech_stopped`, or combining the two.
-#                     if response.get('type') == 'input_audio_buffer.speech_started':
-#                         print("Speech started detected.")
-#                         if last_assistant_item:
-#                             print(f"Interrupting response with id: {last_assistant_item}")
-#                             await handle_speech_started_event()
-#             except Exception as e:
-#                 print(f"Error in send_to_twilio: {e}")
-
-#         async def handle_speech_started_event():
-#             """Handle interruption when the caller's speech starts."""
-#             nonlocal response_start_timestamp_twilio, last_assistant_item
-#             print("Handling speech started event.")
-#             if mark_queue and response_start_timestamp_twilio is not None:
-#                 elapsed_time = latest_media_timestamp - response_start_timestamp_twilio
-#                 if SHOW_TIMING_MATH:
-#                     print(f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
-
-#                 if last_assistant_item:
-#                     if SHOW_TIMING_MATH:
-#                         print(f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
-
-#                     truncate_event = {
-#                         "type": "conversation.item.truncate",
-#                         "item_id": last_assistant_item,
-#                         "content_index": 0,
-#                         "audio_end_ms": elapsed_time
-#                     }
-#                     await openai_ws.send(json.dumps(truncate_event))
-
-#                 await websocket.send_json({
-#                     "event": "clear",
-#                     "streamSid": stream_sid
-#                 })
-
-#                 mark_queue.clear()
-#                 last_assistant_item = None
-#                 response_start_timestamp_twilio = None
-
-#         async def send_mark(connection, stream_sid):
-#             if stream_sid:
-#                 mark_event = {
-#                     "event": "mark",
-#                     "streamSid": stream_sid,
-#                     "mark": {"name": "responsePart"}
-#                 }
-#                 await connection.send_json(mark_event)
-#                 mark_queue.append('responsePart')
-
-#         await asyncio.gather(receive_from_twilio(), send_to_twilio())
-
-# async def send_initial_conversation_item(openai_ws):
-#     """Send initial conversation item if AI talks first."""
-#     initial_conversation_item = {
-#         "type": "conversation.item.create",
-#         "item": {
-#             "type": "message",
-#             "role": "user",
-#             "content": [
-#                 {
-#                     "type": "input_text",
-#                     "text": "Hi there! 👋 I'm your friendly assistant from INFOLABZ. I can help you explore internship opportunities. Feel free to ask me anything — I'm here to help!"
-#                 }
-#             ]
-#         }
-#     }
-#     await openai_ws.send(json.dumps(initial_conversation_item))
-#     await openai_ws.send(json.dumps({"type": "response.create"}))
-
-
-# async def initialize_session(openai_ws):
-#     """Control initial session with OpenAI."""
-#     session_update = {
-#         "type": "session.update",
-#         "session": {
-#             "turn_detection": {"type": "server_vad"},
-#             "input_audio_format": "g711_ulaw",
-#             "output_audio_format": "g711_ulaw",
-#             "voice": VOICE,
-#             "instructions": SYSTEM_MESSAGE +  "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
-#             "modalities": ["text", "audio"],
-#             "temperature": 0.9,
-#         }
-#     }
-#     print('Sending session update:', json.dumps(session_update))
-#     await openai_ws.send(json.dumps(session_update))
-
-#     # Uncomment the next line to have the AI speak first
-#     # await send_initial_conversation_item(openai_ws)
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=PORT)
-
-
-
-
-
-####### Working Code Ends #######
-
-
-
-
-
-
-
-
-
-
-
-
-
 import os
 import json
 import base64
@@ -683,16 +392,9 @@ import websockets
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
-from twilio.twiml.voice_response import VoiceResponse, Connect
+from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
 from dotenv import load_dotenv
 from datetime import datetime
-from pymongo import MongoClient
-from oauth2client.service_account import ServiceAccountCredentials
-import gspread
-from twilio.rest import Client as TwilioClient
-import smtplib
-from email.message import EmailMessage
-import re
 
 load_dotenv()
 
@@ -700,32 +402,10 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 PORT = int(os.getenv('PORT', 5050))
 
-# MongoDB
-mongo_client = MongoClient(os.getenv("MONGO_URI"))
-db = mongo_client["infolabz"]
-conversation_collection = db["conversations"]
-user_collection = db["user_details"]
-
-# Google Sheets
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-credentials_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
-credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
-gs_client = gspread.authorize(credentials)
-sheet = gs_client.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
-worksheet = sheet.worksheet("Test")
-
-# Twilio
-twilio_client = TwilioClient(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
-
-# Email
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASS")
-
-# Timestamps
+# # Current date and time
 current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
-
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
 
@@ -756,13 +436,313 @@ Process Flow:
 1. Eligibility verification
 2. Domain selection guidance
 3. Application collection
-4. Verify the users details 
+4. Screening call scheduling
 5. Final confirmation
 
 Current Date: {current_date}
 Current Time: {current_time}
+
+Behavior Guidelines:
+1. Always verify educational status first
+2. Explain AICTE benefits clearly
+3. Provide real project examples when discussing domains
+4. Be encouraging but realistic about expectations
+5. For technical queries, reference our actual tech stack
+6. Maintain professional yet student-friendly tone
 """
 
+VOICE = 'alloy'
+# VOICE = 'Polly.Raveena'
+LOG_EVENT_TYPES = [
+    'error', 'response.content.done', 'rate_limits.updated',
+    'response.done', 'input_audio_buffer.committed',
+    'input_audio_buffer.speech_stopped', 'input_audio_buffer.speech_started',
+    'conversation.item.retrived','conversation.item.input_audio_transcription.completed',
+    'session.created'
+]
+SHOW_TIMING_MATH = False
+
+app = FastAPI()
+
+if not OPENAI_API_KEY:
+    raise ValueError('Missing the OpenAI API key. Please set it in the .env file.')
+
+@app.get("/", response_class=JSONResponse)
+async def index_page():
+    return {"message": "Twilio Media Stream Server is running!"}
+
+@app.api_route("/incoming-call", methods=["GET", "POST"])
+async def handle_incoming_call(request: Request):
+    """Handle incoming call and return TwiML response to connect to Media Stream."""
+    response = VoiceResponse()
+    # <Say> punctuation to improve text-to-speech flow
+    response.say("Please wait while we connect your call to the A. I. voice assistant, powered by infolabz",language='en-IN')
+    response.pause(length=1)
+    host = request.url.hostname
+    connect = Connect()
+    connect.stream(url=f'wss://{host}/media-stream')
+    response.append(connect)
+    return HTMLResponse(content=str(response), media_type="application/xml")
+
+@app.websocket("/media-stream")
+async def handle_media_stream(websocket: WebSocket):
+    """Handle WebSocket connections between Twilio and OpenAI."""
+    print("Client connected")
+    await websocket.accept()
+
+    async with websockets.connect(
+        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
+        extra_headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "OpenAI-Beta": "realtime=v1"
+        }
+    ) as openai_ws:
+        await initialize_session(openai_ws)
+
+        # Connection specific state
+        stream_sid = None
+        latest_media_timestamp = 0
+        last_assistant_item = None
+        mark_queue = []
+        response_start_timestamp_twilio = None
+        
+        async def receive_from_twilio():
+            """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
+            nonlocal stream_sid, latest_media_timestamp
+            try:
+                async for message in websocket.iter_text():
+                    data = json.loads(message)
+                    if data['event'] == 'media' and openai_ws.open:
+                        latest_media_timestamp = int(data['media']['timestamp'])
+                        audio_append = {
+                            "type": "input_audio_buffer.append",
+                            "audio": data['media']['payload']
+                        }
+                        await openai_ws.send(json.dumps(audio_append))
+                    elif data['event'] == 'start':
+                        stream_sid = data['start']['streamSid']
+                        print(f"Incoming stream has started {stream_sid}")
+                        response_start_timestamp_twilio = None
+                        latest_media_timestamp = 0
+                        last_assistant_item = None
+                    elif data['event'] == 'mark':
+                        if mark_queue:
+                            mark_queue.pop(0)
+            except WebSocketDisconnect:
+                print("Client disconnected.")
+                if openai_ws.open:
+                    await openai_ws.close()
+
+        async def send_to_twilio():
+            """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
+            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
+            try:
+                async for openai_message in openai_ws:
+                    response = json.loads(openai_message)
+                    print("All responses: ",response)
+                    if response['type'] in LOG_EVENT_TYPES:
+                        print(f"Received event: {response['type']}", response)
+                    if response.get('type') == 'conversation.item.input_audio_transcription.completed':
+                        print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
+                        user_text = response['transcript']
+                        print("[USER SAID]:", user_text)
+                    if response.get('type') == 'conversation.item.retrived':
+                        user_text = response['item']['content'][0]['transcript']
+                        print("[USER SAID IN RESPONSE]:", response)
+                        print("[USER SAID]:", user_text)
+                    if response.get('type') == 'response.audio_transcript.delta':
+                        bot_text = response['delta']
+                        print("[BOT SAID WORD BY WORD]:", bot_text)
+                    try:
+                        if response.get('type') == 'response.done':
+                            print("Response Done: ",response)
+                    except Exception as e:
+                        print("Respons.Done error on line 560:",e)
+                    if response.get('type') == 'response.audio.delta' and 'delta' in response:
+                        audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
+                        audio_delta = {
+                            "event": "media",
+                            "streamSid": stream_sid,
+                            "media": {
+                                "payload": audio_payload
+                            }
+                        }
+                        await websocket.send_json(audio_delta)
+
+                        if response_start_timestamp_twilio is None:
+                            response_start_timestamp_twilio = latest_media_timestamp
+                            if SHOW_TIMING_MATH:
+                                print(f"Setting start timestamp for new response: {response_start_timestamp_twilio}ms")
+
+                        # Update last_assistant_item safely
+                        if response.get('item_id'):
+                            last_assistant_item = response['item_id']
+
+                        await send_mark(websocket, stream_sid)
+
+                    # Trigger an interruption. Your use case might work better using `input_audio_buffer.speech_stopped`, or combining the two.
+                    if response.get('type') == 'input_audio_buffer.speech_started':
+                        print("Speech started detected.")
+                        if last_assistant_item:
+                            print(f"Interrupting response with id: {last_assistant_item}")
+                            await handle_speech_started_event()
+            except Exception as e:
+                print(f"Error in send_to_twilio: {e}")
+
+        async def handle_speech_started_event():
+            """Handle interruption when the caller's speech starts."""
+            nonlocal response_start_timestamp_twilio, last_assistant_item
+            print("Handling speech started event.")
+            if mark_queue and response_start_timestamp_twilio is not None:
+                elapsed_time = latest_media_timestamp - response_start_timestamp_twilio
+                if SHOW_TIMING_MATH:
+                    print(f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
+
+                if last_assistant_item:
+                    if SHOW_TIMING_MATH:
+                        print(f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
+
+                    truncate_event = {
+                        "type": "conversation.item.truncate",
+                        "item_id": last_assistant_item,
+                        "content_index": 0,
+                        "audio_end_ms": elapsed_time
+                    }
+                    await openai_ws.send(json.dumps(truncate_event))
+
+                await websocket.send_json({
+                    "event": "clear",
+                    "streamSid": stream_sid
+                })
+
+                mark_queue.clear()
+                last_assistant_item = None
+                response_start_timestamp_twilio = None
+
+        async def send_mark(connection, stream_sid):
+            if stream_sid:
+                mark_event = {
+                    "event": "mark",
+                    "streamSid": stream_sid,
+                    "mark": {"name": "responsePart"}
+                }
+                await connection.send_json(mark_event)
+                mark_queue.append('responsePart')
+
+        await asyncio.gather(receive_from_twilio(), send_to_twilio())
+
+async def send_initial_conversation_item(openai_ws):
+    """Send initial conversation item if AI talks first."""
+    initial_conversation_item = {
+        "type": "conversation.item.create",
+        "item": {
+            "type": "message",
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": "Hi there! 👋 I'm your friendly assistant from INFOLABZ. I can help you explore internship opportunities. Feel free to ask me anything — I'm here to help!"
+                }
+            ]
+        }
+    }
+    await openai_ws.send(json.dumps(initial_conversation_item))
+    await openai_ws.send(json.dumps({"type": "response.create"}))
+
+
+async def initialize_session(openai_ws):
+    """Control initial session with OpenAI."""
+    session_update = {
+        "type": "session.update",
+        "session": {
+            "turn_detection": {"type": "server_vad"},
+            "input_audio_format": "g711_ulaw",
+            "output_audio_format": "g711_ulaw",
+            "input_audio_transcription": {"model": "whisper-1"},
+            "voice": VOICE,
+            "instructions": SYSTEM_MESSAGE +  "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
+            "modalities": ["text", "audio"],
+            "temperature": 0.9,
+        }
+    }
+    print('Sending session update:', json.dumps(session_update))
+    await openai_ws.send(json.dumps(session_update))
+
+    # Uncomment the next line to have the AI speak first
+    # await send_initial_conversation_item(openai_ws)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
+
+
+
+
+
+####### Working Code Ends #######
+
+
+
+
+
+
+
+
+
+
+
+
+
+# import os
+# import json
+# import base64
+# import asyncio
+# import websockets
+# from fastapi import FastAPI, WebSocket, Request
+# from fastapi.responses import HTMLResponse, JSONResponse
+# from fastapi.websockets import WebSocketDisconnect
+# from twilio.twiml.voice_response import VoiceResponse, Connect
+# from dotenv import load_dotenv
+# from datetime import datetime
+# from pymongo import MongoClient
+# from oauth2client.service_account import ServiceAccountCredentials
+# import gspread
+# from twilio.rest import Client as TwilioClient
+# import smtplib
+# from email.message import EmailMessage
+# import re
+
+# load_dotenv()
+
+# # Configuration
+# OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+# PORT = int(os.getenv('PORT', 5050))
+
+# # MongoDB
+# mongo_client = MongoClient(os.getenv("MONGO_URI"))
+# db = mongo_client["infolabz"]
+# conversation_collection = db["conversations"]
+# user_collection = db["user_details"]
+
+# # Google Sheets
+# scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+# credentials_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+# credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+# gs_client = gspread.authorize(credentials)
+# sheet = gs_client.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
+# worksheet = sheet.worksheet("Test")
+
+# # Twilio
+# twilio_client = TwilioClient(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+
+# # Email
+# EMAIL_USER = os.getenv("EMAIL_USER")
+# EMAIL_PASSWORD = os.getenv("EMAIL_PASS")
+
+# # Timestamps
+# current_datetime = datetime.now()
+# current_date = current_datetime.strftime("%d-%m-%Y")
+# current_time = current_datetime.strftime("%I:%M %p")
 
 # SYSTEM_MESSAGE = f"""
 # I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
@@ -781,7 +761,7 @@ Current Time: {current_time}
 # - Basic programming knowledge preferred
 # - Duration options: 3 or 6 months
 
-# Required Details (to be collected upon eligibility confirmation):
+# Required Details:
 # 1. Full Name
 # 2. Contact Information (Phone/Email)
 # 3. Educational Institution
@@ -793,324 +773,362 @@ Current Time: {current_time}
 # Process Flow:
 # 1. Eligibility verification
 # 2. Domain selection guidance
-# 3. If eligible and interested, collect required details
-# 4. Show collected details back to the user for confirmation:
-# 5. Final confirmation of the details and Team will contact you soon regarding the next steps.
+# 3. Application collection
+# 4. Verify the users details 
+# 5. Final confirmation
 
 # Current Date: {current_date}
 # Current Time: {current_time}
 # """
 
-VOICE = 'alloy'
-LOG_EVENT_TYPES = [
-    'error', 'response.content.done', 'rate_limits.updated',
-    'response.done', 'input_audio_buffer.committed', 'conversation.item.retrived','conversation.item.input_audio_transcription.completed',
-    'input_audio_buffer.speech_stopped', 'input_audio_buffer.speech_started',
-    'session.created'
-]
-SHOW_TIMING_MATH = False
 
-app = FastAPI()
+# # SYSTEM_MESSAGE = f"""
+# # I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
 
-@app.get("/", response_class=JSONResponse)
-async def index_page():
-    return {"message": "INFOLABZ Twilio AI Assistant is running."}
+# # Key Information:
+# # - Internship Domains:
+# #   1. Web Development (React, Django)
+# #   2. Mobile App Development (Flutter, Android)
+# #   3. Custom Software Solutions
+# #   4. IoT Development
+# #   5. UI/UX Design
+# #   6. Data Science & Machine Learning
 
-@app.api_route("/incoming-call", methods=["GET", "POST"])
-async def handle_incoming_call(request: Request):
-    response = VoiceResponse()
-    response.say("Please wait while we connect your call to the AI voice assistant.", language='en-IN')
-    host = request.url.hostname
-    connect = Connect()
-    connect.stream(url=f'wss://{host}/media-stream')
-    response.append(connect)
-    return HTMLResponse(content=str(response), media_type="application/xml")
+# # Application Requirements:
+# # - Must be enrolled in BCA/MCA/Diploma/Degree program
+# # - Basic programming knowledge preferred
+# # - Duration options: 3 or 6 months
 
-@app.websocket("/media-stream")
-async def handle_media_stream(websocket: WebSocket):
-    await websocket.accept()
-    print("Client connected.")
+# # Required Details (to be collected upon eligibility confirmation):
+# # 1. Full Name
+# # 2. Contact Information (Phone/Email)
+# # 3. Educational Institution
+# # 4. Current Year/Semester
+# # 5. Preferred Internship Domain
+# # 6. Technical Skills
+# # 7. Preferred Start Date
 
-    async with websockets.connect(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17',
-        extra_headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "OpenAI-Beta": "realtime=v1"
-        }
-    ) as openai_ws:
-        await initialize_session(openai_ws)
+# # Process Flow:
+# # 1. Eligibility verification
+# # 2. Domain selection guidance
+# # 3. If eligible and interested, collect required details
+# # 4. Show collected details back to the user for confirmation:
+# # 5. Final confirmation of the details and Team will contact you soon regarding the next steps.
 
-        stream_sid = None
-        latest_media_timestamp = 0
-        last_assistant_item = None
-        mark_queue = []
-        response_start_timestamp_twilio = None
+# # Current Date: {current_date}
+# # Current Time: {current_time}
+# # """
 
-        collected_data = {
-            "name": None, "phone": None, "email": None,
-            "institution": None, "semester": None,
-            "domain": None, "skills": None,
-            "start_date": None, "duration": None
-        }
-        submitted = False
+# VOICE = 'alloy'
+# LOG_EVENT_TYPES = [
+#     'error', 'response.content.done', 'rate_limits.updated',
+#     'response.done', 'input_audio_buffer.committed', 'conversation.item.retrived','conversation.item.input_audio_transcription.completed',
+#     'input_audio_buffer.speech_stopped', 'input_audio_buffer.speech_started',
+#     'session.created'
+# ]
+# SHOW_TIMING_MATH = False
 
-        def all_fields_filled(data):
-            return all(data.values())
+# app = FastAPI()
 
-        async def process_user_message(text):
-            print("Inside the process user message function")
-            nonlocal submitted
-            text_lower = text.lower()
-            print("The data received from the bot: ",text_lower)
-            # if "name is" in text_lower:
-            #     collected_data["name"] = text.split("is")[-1].strip()
-            # elif "email" in text_lower:
-            #     collected_data["email"] = text.split()[-1].strip()
-            # elif "phone" in text_lower or "contact" in text_lower:
-            #     collected_data["phone"] = ''.join(filter(str.isdigit, text))
-            # elif "institution" in text_lower or "college" in text_lower:
-            #     collected_data["institution"] = text.split()[-1].strip()
-            # elif "semester" in text_lower or "year" in text_lower:
-            #     collected_data["semester"] = text.split()[-1].strip()
-            # elif "domain" in text_lower:
-            #     collected_data["domain"] = text.split("domain")[-1].strip()
-            # elif "skill" in text_lower:
-            #     collected_data["skills"] = text.split("skill")[-1].strip()
-            # elif "start date" in text_lower or "from" in text_lower:
-            #     collected_data["start_date"] = text.split()[-1].strip()
-            # elif "month" in text_lower or "duration" in text_lower:
-            #     collected_data["duration"] = text.split()[0].strip()
-            # Name
-            match = re.search(r"(my name is|i am)\s+([a-zA-Z ]+)", text_lower)
-            if match:
-                collected_data["name"] = match.group(2).strip()
+# @app.get("/", response_class=JSONResponse)
+# async def index_page():
+#     return {"message": "INFOLABZ Twilio AI Assistant is running."}
 
-            # Email
-            match = re.search(r"[\w\.-]+@[\w\.-]+", text)
-            if match:
-                collected_data["email"] = match.group(0).strip()
+# @app.api_route("/incoming-call", methods=["GET", "POST"])
+# async def handle_incoming_call(request: Request):
+#     response = VoiceResponse()
+#     response.say("Please wait while we connect your call to the AI voice assistant.", language='en-IN')
+#     host = request.url.hostname
+#     connect = Connect()
+#     connect.stream(url=f'wss://{host}/media-stream')
+#     response.append(connect)
+#     return HTMLResponse(content=str(response), media_type="application/xml")
 
-            # Phone
-            match = re.search(r"\b\d{10}\b", text)
-            if match:
-                collected_data["phone"] = match.group(0).strip()
+# @app.websocket("/media-stream")
+# async def handle_media_stream(websocket: WebSocket):
+#     await websocket.accept()
+#     print("Client connected.")
 
-            # Institution
-            if "institution" in text_lower or "college" in text_lower:
-                collected_data["institution"] = text.split()[-1].strip()
+#     async with websockets.connect(
+#         'wss://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17',
+#         extra_headers={
+#             "Authorization": f"Bearer {OPENAI_API_KEY}",
+#             "OpenAI-Beta": "realtime=v1"
+#         }
+#     ) as openai_ws:
+#         await initialize_session(openai_ws)
 
-            # Semester
-            match = re.search(r"(semester|year)\s+(\w+)", text_lower)
-            if match:
-                collected_data["semester"] = match.group(2).strip()
+#         stream_sid = None
+#         latest_media_timestamp = 0
+#         last_assistant_item = None
+#         mark_queue = []
+#         response_start_timestamp_twilio = None
 
-            # Domain
-            if "domain" in text_lower:
-                collected_data["domain"] = text.split("domain")[-1].strip()
+#         collected_data = {
+#             "name": None, "phone": None, "email": None,
+#             "institution": None, "semester": None,
+#             "domain": None, "skills": None,
+#             "start_date": None, "duration": None
+#         }
+#         submitted = False
 
-            # Skills
-            if "skill" in text_lower:
-                collected_data["skills"] = text.split("skill")[-1].strip()
+#         def all_fields_filled(data):
+#             return all(data.values())
 
-            # Start Date
-            match = re.search(r"(start date|from)\s+(\w+)", text_lower)
-            if match:
-                collected_data["start_date"] = match.group(2).strip()
+#         async def process_user_message(text):
+#             print("Inside the process user message function")
+#             nonlocal submitted
+#             text_lower = text.lower()
+#             print("The data received from the bot: ",text_lower)
+#             # if "name is" in text_lower:
+#             #     collected_data["name"] = text.split("is")[-1].strip()
+#             # elif "email" in text_lower:
+#             #     collected_data["email"] = text.split()[-1].strip()
+#             # elif "phone" in text_lower or "contact" in text_lower:
+#             #     collected_data["phone"] = ''.join(filter(str.isdigit, text))
+#             # elif "institution" in text_lower or "college" in text_lower:
+#             #     collected_data["institution"] = text.split()[-1].strip()
+#             # elif "semester" in text_lower or "year" in text_lower:
+#             #     collected_data["semester"] = text.split()[-1].strip()
+#             # elif "domain" in text_lower:
+#             #     collected_data["domain"] = text.split("domain")[-1].strip()
+#             # elif "skill" in text_lower:
+#             #     collected_data["skills"] = text.split("skill")[-1].strip()
+#             # elif "start date" in text_lower or "from" in text_lower:
+#             #     collected_data["start_date"] = text.split()[-1].strip()
+#             # elif "month" in text_lower or "duration" in text_lower:
+#             #     collected_data["duration"] = text.split()[0].strip()
+#             # Name
+#             match = re.search(r"(my name is|i am)\s+([a-zA-Z ]+)", text_lower)
+#             if match:
+#                 collected_data["name"] = match.group(2).strip()
 
-            # Duration
-            match = re.search(r"(duration|month)\s+(\w+)", text_lower)
-            if match:
-                collected_data["duration"] = match.group(2).strip()
+#             # Email
+#             match = re.search(r"[\w\.-]+@[\w\.-]+", text)
+#             if match:
+#                 collected_data["email"] = match.group(0).strip()
 
-            if all_fields_filled(collected_data) and not submitted:
-                print("🔥 Final Data to Submit:", collected_data)
-                await handle_user_submission(collected_data)
-                submitted = True
+#             # Phone
+#             match = re.search(r"\b\d{10}\b", text)
+#             if match:
+#                 collected_data["phone"] = match.group(0).strip()
 
-        async def receive_from_twilio():
-            nonlocal stream_sid, latest_media_timestamp
-            try:
-                async for message in websocket.iter_text():
-                    data = json.loads(message)
-                    if data['event'] == 'media' and openai_ws.open:
-                        latest_media_timestamp = int(data['media']['timestamp'])
-                        await openai_ws.send(json.dumps({
-                            "type": "input_audio_buffer.append",
-                            "audio": data['media']['payload']
-                        }))
-                    elif data['event'] == 'start':
-                        stream_sid = data['start']['streamSid']
-                    elif data['event'] == 'mark':
-                        if mark_queue: mark_queue.pop(0)
-            except WebSocketDisconnect:
-                print("Client disconnected.")
-                if openai_ws.open:
-                    await openai_ws.close()
+#             # Institution
+#             if "institution" in text_lower or "college" in text_lower:
+#                 collected_data["institution"] = text.split()[-1].strip()
 
-        async def send_to_twilio():
-            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
-            try:
-                async for openai_message in openai_ws:
-                    response = json.loads(openai_message)
-                    print("Bot Response: ", response)
-                    if response['type'] in LOG_EVENT_TYPES:
-                        print(f"Received event: {response['type']}", response)
-                    if response.get('type') == 'response.audio.delta' and 'delta' in response:
-                        await websocket.send_json({
-                            "event": "media",
-                            "streamSid": stream_sid,
-                            "media": {"payload": base64.b64encode(base64.b64decode(response['delta'])).decode()}
-                        })
-                        if response.get("item_id"): last_assistant_item = response["item_id"]
-                        if response_start_timestamp_twilio is None:
-                            response_start_timestamp_twilio = latest_media_timestamp
-                        await send_mark(websocket, stream_sid)
-                    if response.get('type') == 'conversation.item.input_audio_transcription.completed':
-                                print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
-                                user_text = response['transcript']
-                                print("[USER SAID]:", user_text)
-                                try:
-                                    asyncio.create_task(save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}"))
-                                except Exception as e:
-                                    print("Save Conversation Error: ",e)
-                                try:
-                                    asyncio.create_task(process_user_message(user_text))
-                                except Exception as e:
-                                    print("Process User Message Error: ",e)
-                    if response.get('type') == 'conversation.item.retrived':
-                                user_text = response['item']['content'][0]['transcript']
-                                print("[USER SAID IN RESPONSE]:", response)
-                                print("[USER SAID]:", user_text)
-                                try:    
-                                    asyncio.create_task(save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}"))
-                                except Exception as e:
-                                    print("User Response Error on line 990: ",e)
-                                try:
-                                    asyncio.create_task(process_user_message(user_text))
-                                except Exception as e:
-                                    print("User Response Error on line 994: ",e)
-                    if response.get('type') == 'response.audio_transcript.delta':
-                                bot_text = response['delta']
-                                print("[BOT SAID WORD BY WORD]:", bot_text)
-                    if response.get('type') == 'response.done':
-                                print("Response Done: ",response)
-                                bot_text1 = response['output'][0]['content'][0]['transcript']
-                                bot_text2 = response['response']['output'][0]['content'][0]['transcript']
-                                print("[BOT SAID WHOLE TEXT 1]:", bot_text1)
-                                print("[BOT SAID WHOLE TEXT 2]:", bot_text2)
-                                try:
-                                    asyncio.create_task(save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text2}"))
-                                except Exception as e:
-                                    print("Bot resposne  Error on line 1008: ",e)
-                    if response.get("type") == "input_audio_buffer.speech_started":
-                        await handle_speech_started_event()
-            except Exception as e:
-                print("Error:", e)
+#             # Semester
+#             match = re.search(r"(semester|year)\s+(\w+)", text_lower)
+#             if match:
+#                 collected_data["semester"] = match.group(2).strip()
 
-        async def handle_speech_started_event():
-            nonlocal response_start_timestamp_twilio, last_assistant_item
-            if last_assistant_item and response_start_timestamp_twilio:
-                await openai_ws.send(json.dumps({
-                    "type": "conversation.item.truncate",
-                    "item_id": last_assistant_item,
-                    "content_index": 0,
-                    "audio_end_ms": latest_media_timestamp - response_start_timestamp_twilio
-                }))
-                await websocket.send_json({"event": "clear", "streamSid": stream_sid})
-                mark_queue.clear()
-                last_assistant_item = None
-                response_start_timestamp_twilio = None
+#             # Domain
+#             if "domain" in text_lower:
+#                 collected_data["domain"] = text.split("domain")[-1].strip()
 
-        async def send_mark(connection, stream_sid):
-            await connection.send_json({
-                "event": "mark",
-                "streamSid": stream_sid,
-                "mark": {"name": "responsePart"}
-            })
-            mark_queue.append("responsePart")
+#             # Skills
+#             if "skill" in text_lower:
+#                 collected_data["skills"] = text.split("skill")[-1].strip()
 
-        await asyncio.gather(receive_from_twilio(), send_to_twilio())
+#             # Start Date
+#             match = re.search(r"(start date|from)\s+(\w+)", text_lower)
+#             if match:
+#                 collected_data["start_date"] = match.group(2).strip()
 
-# Helper Functions
-async def save_conversation_to_db(user_id, message):
-    conversation_collection.insert_one({
-        "user_id": user_id,
-        "message": message,
-        "timestamp": datetime.now()
-    })
+#             # Duration
+#             match = re.search(r"(duration|month)\s+(\w+)", text_lower)
+#             if match:
+#                 collected_data["duration"] = match.group(2).strip()
 
-async def save_user_to_google_sheet(data):
-    worksheet.append_row([
-        data["name"],
-        data["phone"],
-        data["email"],
-        data["institution"],
-        data["semester"],
-        data["domain"],
-        data["skills"],
-        data["start_date"]
-    ])
+#             if all_fields_filled(collected_data) and not submitted:
+#                 print("🔥 Final Data to Submit:", collected_data)
+#                 await handle_user_submission(collected_data)
+#                 submitted = True
 
-async def notify_user(data):
-    message = f"""Hello {data['name']},
+#         async def receive_from_twilio():
+#             nonlocal stream_sid, latest_media_timestamp
+#             try:
+#                 async for message in websocket.iter_text():
+#                     data = json.loads(message)
+#                     if data['event'] == 'media' and openai_ws.open:
+#                         latest_media_timestamp = int(data['media']['timestamp'])
+#                         await openai_ws.send(json.dumps({
+#                             "type": "input_audio_buffer.append",
+#                             "audio": data['media']['payload']
+#                         }))
+#                     elif data['event'] == 'start':
+#                         stream_sid = data['start']['streamSid']
+#                     elif data['event'] == 'mark':
+#                         if mark_queue: mark_queue.pop(0)
+#             except WebSocketDisconnect:
+#                 print("Client disconnected.")
+#                 if openai_ws.open:
+#                     await openai_ws.close()
 
-Thank you for applying for the internship at Infolabz!
+#         async def send_to_twilio():
+#             nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
+#             try:
+#                 async for openai_message in openai_ws:
+#                     response = json.loads(openai_message)
+#                     print("Bot Response: ", response)
+#                     if response['type'] in LOG_EVENT_TYPES:
+#                         print(f"Received event: {response['type']}", response)
+#                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
+#                         await websocket.send_json({
+#                             "event": "media",
+#                             "streamSid": stream_sid,
+#                             "media": {"payload": base64.b64encode(base64.b64decode(response['delta'])).decode()}
+#                         })
+#                         if response.get("item_id"): last_assistant_item = response["item_id"]
+#                         if response_start_timestamp_twilio is None:
+#                             response_start_timestamp_twilio = latest_media_timestamp
+#                         await send_mark(websocket, stream_sid)
+#                     if response.get('type') == 'conversation.item.input_audio_transcription.completed':
+#                                 print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
+#                                 user_text = response['transcript']
+#                                 print("[USER SAID]:", user_text)
+#                                 try:
+#                                     asyncio.create_task(save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}"))
+#                                 except Exception as e:
+#                                     print("Save Conversation Error: ",e)
+#                                 try:
+#                                     asyncio.create_task(process_user_message(user_text))
+#                                 except Exception as e:
+#                                     print("Process User Message Error: ",e)
+#                     if response.get('type') == 'conversation.item.retrived':
+#                                 user_text = response['item']['content'][0]['transcript']
+#                                 print("[USER SAID IN RESPONSE]:", response)
+#                                 print("[USER SAID]:", user_text)
+#                                 try:    
+#                                     asyncio.create_task(save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}"))
+#                                 except Exception as e:
+#                                     print("User Response Error on line 990: ",e)
+#                                 try:
+#                                     asyncio.create_task(process_user_message(user_text))
+#                                 except Exception as e:
+#                                     print("User Response Error on line 994: ",e)
+#                     if response.get('type') == 'response.audio_transcript.delta':
+#                                 bot_text = response['delta']
+#                                 print("[BOT SAID WORD BY WORD]:", bot_text)
+#                     if response.get('type') == 'response.done':
+#                                 print("Response Done: ",response)
+#                                 bot_text1 = response['output'][0]['content'][0]['transcript']
+#                                 bot_text2 = response['response']['output'][0]['content'][0]['transcript']
+#                                 print("[BOT SAID WHOLE TEXT 1]:", bot_text1)
+#                                 print("[BOT SAID WHOLE TEXT 2]:", bot_text2)
+#                                 try:
+#                                     asyncio.create_task(save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text2}"))
+#                                 except Exception as e:
+#                                     print("Bot resposne  Error on line 1008: ",e)
+#                     if response.get("type") == "input_audio_buffer.speech_started":
+#                         await handle_speech_started_event()
+#             except Exception as e:
+#                 print("Error:", e)
 
-📞 Phone: {data['phone']}
-📧 Email: {data['email']}
-🏫 Institution: {data['institution']}
-🎯 Domain: {data['domain']}
-⏳ Duration: {data['duration']}
-📅 Preferred Start Date: {data['start_date']}
+#         async def handle_speech_started_event():
+#             nonlocal response_start_timestamp_twilio, last_assistant_item
+#             if last_assistant_item and response_start_timestamp_twilio:
+#                 await openai_ws.send(json.dumps({
+#                     "type": "conversation.item.truncate",
+#                     "item_id": last_assistant_item,
+#                     "content_index": 0,
+#                     "audio_end_ms": latest_media_timestamp - response_start_timestamp_twilio
+#                 }))
+#                 await websocket.send_json({"event": "clear", "streamSid": stream_sid})
+#                 mark_queue.clear()
+#                 last_assistant_item = None
+#                 response_start_timestamp_twilio = None
 
-✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
+#         async def send_mark(connection, stream_sid):
+#             await connection.send_json({
+#                 "event": "mark",
+#                 "streamSid": stream_sid,
+#                 "mark": {"name": "responsePart"}
+#             })
+#             mark_queue.append("responsePart")
 
-Best regards,  
-Infolabz Team"""
+#         await asyncio.gather(receive_from_twilio(), send_to_twilio())
 
-    twilio_client.messages.create(
-        from_=os.getenv("TWILIO_WHATSAPP_FROM"),
-        to=f'whatsapp:{data["phone"]}',
-        body=message
-    )
+# # Helper Functions
+# async def save_conversation_to_db(user_id, message):
+#     conversation_collection.insert_one({
+#         "user_id": user_id,
+#         "message": message,
+#         "timestamp": datetime.now()
+#     })
 
-    twilio_client.messages.create(
-        from_=os.getenv("TWILIO_PHONE_NUMBER"),
-        to=data["phone"],
-        body="Thanks for applying for the internship at Infolabz! We have received your details successfully."
-    )
+# async def save_user_to_google_sheet(data):
+#     worksheet.append_row([
+#         data["name"],
+#         data["phone"],
+#         data["email"],
+#         data["institution"],
+#         data["semester"],
+#         data["domain"],
+#         data["skills"],
+#         data["start_date"]
+#     ])
 
-    email = EmailMessage()
-    email["From"] = EMAIL_USER
-    email["To"] = data["email"]
-    email["Subject"] = "Internship Application - Infolabz"
-    email.set_content(message)
+# async def notify_user(data):
+#     message = f"""Hello {data['name']},
 
-    with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
-        server.starttls()
-        server.login(EMAIL_USER, EMAIL_PASSWORD)
-        server.send_message(email)
+# Thank you for applying for the internship at Infolabz!
 
-async def handle_user_submission(user_data):
-    user_collection.insert_one(user_data)
-    await save_user_to_google_sheet(user_data)
-    await notify_user(user_data)
+# 📞 Phone: {data['phone']}
+# 📧 Email: {data['email']}
+# 🏫 Institution: {data['institution']}
+# 🎯 Domain: {data['domain']}
+# ⏳ Duration: {data['duration']}
+# 📅 Preferred Start Date: {data['start_date']}
 
-async def initialize_session(openai_ws):
-    await openai_ws.send(json.dumps({
-        "type": "session.update",
-        "session": {
-            "turn_detection": {"type": "server_vad"},
-            "input_audio_format": "g711_ulaw",
-            "output_audio_format": "g711_ulaw",
-            "input_audio_transcription": {"model": "whisper-1"},
-            "voice": VOICE,
-            "instructions": SYSTEM_MESSAGE + "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
-            "modalities": ["text", "audio"],
-            "temperature": 0.8,
-        }
-    }))
+# ✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+# Best regards,  
+# Infolabz Team"""
+
+#     twilio_client.messages.create(
+#         from_=os.getenv("TWILIO_WHATSAPP_FROM"),
+#         to=f'whatsapp:{data["phone"]}',
+#         body=message
+#     )
+
+#     twilio_client.messages.create(
+#         from_=os.getenv("TWILIO_PHONE_NUMBER"),
+#         to=data["phone"],
+#         body="Thanks for applying for the internship at Infolabz! We have received your details successfully."
+#     )
+
+#     email = EmailMessage()
+#     email["From"] = EMAIL_USER
+#     email["To"] = data["email"]
+#     email["Subject"] = "Internship Application - Infolabz"
+#     email.set_content(message)
+
+#     with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
+#         server.starttls()
+#         server.login(EMAIL_USER, EMAIL_PASSWORD)
+#         server.send_message(email)
+
+# async def handle_user_submission(user_data):
+#     user_collection.insert_one(user_data)
+#     await save_user_to_google_sheet(user_data)
+#     await notify_user(user_data)
+
+# async def initialize_session(openai_ws):
+#     await openai_ws.send(json.dumps({
+#         "type": "session.update",
+#         "session": {
+#             "turn_detection": {"type": "server_vad"},
+#             "input_audio_format": "g711_ulaw",
+#             "output_audio_format": "g711_ulaw",
+#             "input_audio_transcription": {"model": "whisper-1"},
+#             "voice": VOICE,
+#             "instructions": SYSTEM_MESSAGE + "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
+#             "modalities": ["text", "audio"],
+#             "temperature": 0.8,
+#         }
+#     }))
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=PORT)
