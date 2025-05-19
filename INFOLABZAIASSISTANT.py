@@ -858,8 +858,10 @@ async def handle_media_stream(websocket: WebSocket):
             return all(data.values())
 
         async def process_user_message(text):
+            print("Inside the process user message function")
             nonlocal submitted
             text_lower = text.lower()
+            print("The data received from the bot: ",text_lower)
             # if "name is" in text_lower:
             #     collected_data["name"] = text.split("is")[-1].strip()
             # elif "email" in text_lower:
@@ -930,7 +932,6 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
-                    print("Media Data This Print was added by me: ",data)
                     if data['event'] == 'media' and openai_ws.open:
                         latest_media_timestamp = int(data['media']['timestamp'])
                         await openai_ws.send(json.dumps({
@@ -941,11 +942,6 @@ async def handle_media_stream(websocket: WebSocket):
                         stream_sid = data['start']['streamSid']
                     elif data['event'] == 'mark':
                         if mark_queue: mark_queue.pop(0)
-                    # elif data['event'] == 'user-message':
-                    #     if data.get("type") == "transcript":
-                    #         print(f"[USER SAID]: {data['transcript']['text']}")
-                    #     await process_user_message(data['user-message']['text'])
-                    #     await save_conversation_to_db(stream_sid, data['user-message']['text'])
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
@@ -973,23 +969,39 @@ async def handle_media_stream(websocket: WebSocket):
                                 print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
                                 user_text = response['transcript']
                                 print("[USER SAID]:", user_text)
-                                await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
-                                await process_user_message(user_text)
+                                try:
+                                    asyncio.create_task(save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}"))
+                                except Exception as e:
+                                    print("Save Conversation Error: ",e)
+                                try:
+                                    asyncio.create_task(process_user_message(user_text))
+                                except Exception as e:
+                                    print("Process User Message Error: ",e)
                     if response.get('type') == 'conversation.item.retrived':
                                 user_text = response['item']['content'][0]['transcript']
                                 print("[USER SAID IN RESPONSE]:", response)
                                 print("[USER SAID]:", user_text)
-                                await save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}")
-                                await process_user_message(user_text)
+                                try:    
+                                    asyncio.create_task(save_conversation_to_db(stream_sid, f"[USER SAID]: {user_text}"))
+                                except Exception as e:
+                                    print("User Response Error on line 990: ",e)
+                                try:
+                                    asyncio.create_task(process_user_message(user_text))
+                                except Exception as e:
+                                    print("User Response Error on line 994: ",e)
                     if response.get('type') == 'response.audio_transcript.delta':
                                 bot_text = response['delta']
                                 print("[BOT SAID WORD BY WORD]:", bot_text)
                     if response.get('type') == 'response.done':
+                                print("Response Done: ",response)
                                 bot_text1 = response['output'][0]['content'][0]['transcript']
                                 bot_text2 = response['response']['output'][0]['content'][0]['transcript']
                                 print("[BOT SAID WHOLE TEXT 1]:", bot_text1)
                                 print("[BOT SAID WHOLE TEXT 2]:", bot_text2)
-                                await save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text2}")
+                                try:
+                                    asyncio.create_task(save_conversation_to_db(stream_sid, f"[BOT SAID]: {bot_text2}"))
+                                except Exception as e:
+                                    print("Bot resposne  Error on line 1008: ",e)
                     if response.get("type") == "input_audio_buffer.speech_started":
                         await handle_speech_started_event()
             except Exception as e:
@@ -1030,7 +1042,8 @@ async def save_conversation_to_db(user_id, message):
 async def save_user_to_google_sheet(data):
     worksheet.append_row([
         data["name"],
-        f'{data["phone"]} / {data["email"]}',
+        data["phone"],
+        data["email"],
         data["institution"],
         data["semester"],
         data["domain"],
@@ -1090,6 +1103,7 @@ async def initialize_session(openai_ws):
             "turn_detection": {"type": "server_vad"},
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
+            "input_audio_transcription": {"model": "whisper-1"},
             "voice": VOICE,
             "instructions": SYSTEM_MESSAGE + "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
             "modalities": ["text", "audio"],
