@@ -392,8 +392,18 @@ import websockets
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
-from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
+from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream, Record
 from dotenv import load_dotenv
+from datetime import datetime
+import threading
+import re
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from twilio.rest import Client
+import smtplib
+from email.mime.text import MIMEText
+from email.message import EmailMessage
+from pymongo import MongoClient
 from datetime import datetime
 
 load_dotenv()
@@ -406,6 +416,7 @@ PORT = int(os.getenv('PORT', 5050))
 current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
+conversation_transcript = ""
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
 
@@ -547,16 +558,20 @@ async def handle_media_stream(websocket: WebSocket):
                         print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
                         user_text = response['transcript']
                         print("[USER SAID]:", user_text)
-                    if response.get('type') == 'conversation.item.retrived':
-                        user_text = response['item']['content'][0]['transcript']
-                        print("[USER SAID IN RESPONSE]:", response)
-                        print("[USER SAID]:", user_text)
+                        conversation_transcript += f"[USER SAID]: {user_text}\n"
+                    # if response.get('type') == 'conversation.item.retrived':
+                    #     user_text = response['item']['content'][0]['transcript']
+                    #     print("[USER SAID IN RESPONSE]:", response)
+                    #     print("[USER SAID]:", user_text)
+                    #     conversation_transcript += f"[USER SAID]: {user_text}\n"
                     if response.get('type') == 'response.audio_transcript.delta':
                         bot_text = response['delta']
                         print("[BOT SAID WORD BY WORD]:", bot_text)
                     try:
                         if response.get('type') == 'response.done':
+                            print("Conversation finished. Processing user data...")
                             print("Response Done: ",response)
+                            process_user_conversation(conversation_transcript)
                     except Exception as e:
                         print("Respons.Done error on line 560:",e)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
@@ -650,6 +665,119 @@ async def send_initial_conversation_item(openai_ws):
     await openai_ws.send(json.dumps(initial_conversation_item))
     await openai_ws.send(json.dumps({"type": "response.create"}))
 
+def extract_user_info(messages):
+    full_text = " ".join(re.findall(r'\[USER SAID\]: (.+)', messages, re.IGNORECASE))
+    name_match = re.search(r'my name is ([\w\s]+)', full_text, re.IGNORECASE)
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+', full_text)
+    phone_match = re.search(r'(\+?\d[\d\s]{8,}\d)', full_text)
+
+    name = name_match.group(1).strip().title() if name_match else "Not Provided"
+    email = email_match.group(0) if email_match else "Not Provided"
+    phone = phone_match.group(1).replace(" ", "") if phone_match else "Not Provided"
+
+    return {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "message": full_text,
+        "raw_text": messages,
+        "timestamp": datetime.utcnow()
+    }
+
+def background_tasks(user_data):
+    try:
+        # Google Sheets
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/drive"
+        ]
+
+        credentials_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+        credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+        gs_client = gspread.authorize(credentials)
+        sheet = gs_client.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
+        worksheet = sheet.worksheet("Test")
+        # creds = ServiceAccountCredentials.from_json_keyfile_name("google-credentials.json", scope)
+        # sheet_client = gspread.authorize(creds)
+        # sheet = sheet_client.open("Internship Applications").sheet1
+        worksheet.append_row([user_data['name'], user_data['email'], user_data['phone'], user_data['message']])
+        print("[+] Saved to Google Sheets")
+
+        # Twilio
+        twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+        twilio_client.messages.create(
+            body=f"Hi {user_data['name']}, we've received your application. Thanks!",
+            from_=os.getenv("TWILIO_PHONE_NUMBER"),
+            to=user_data['phone']
+        )
+        twilio_client.messages.create(
+            body=f"""Hello {user_data['name']},
+
+# Thank you for applying for the internship at Infolabz!
+
+# 📞 Phone: {user_data['phone']}
+# 📧 Email: {user_data['email']}
+# 🏫 Institution: {user_data['institution']}
+# 🎯 Domain: {user_data['domain']}
+# ⏳ Duration: {user_data['duration']}
+# 📅 Preferred Start Date: {user_data['start_date']}
+
+# ✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
+
+# Best regards,  
+# Infolabz Team""",
+            from_=os.getenv("TWILIO_WHATSAPP_FROM"),
+            to=f"whatsapp:{user_data['phone']}"
+        )
+        print("[+] Twilio messages sent")
+
+        # Email
+        # msg = MIMEText(f"""Hi {user_data['name']},\n\nThanks for applying. We'll get back to you shortly.\n\nMessage:\n{user_data['message']}""")
+        # msg['Subject'] = "Internship Application Received"
+        # msg['From'] = os.getenv("EMAIL_USER")
+        # msg['To'] = user_data['email']
+        
+        message_email = f"""Hello {user_data['name']},
+
+# Thank you for applying for the internship at Infolabz!
+
+# 📞 Phone: {user_data['phone']}
+# 📧 Email: {user_data['email']}
+# 🏫 Institution: {user_data['institution']}
+# 🎯 Domain: {user_data['domain']}
+# ⏳ Duration: {user_data['duration']}
+# 📅 Preferred Start Date: {user_data['start_date']}
+
+# ✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
+
+# Best regards,  
+# Infolabz Team"""
+        email = EmailMessage()
+        email["From"] = os.getenv("EMAIL_USER")
+        email["To"] = user_data["email"]
+        email["Subject"] = "Internship Application - Infolabz"
+        email.set_content(message_email)
+        with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
+            server.starttls()
+            server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+            server.send_message(email)
+        print("[+] Email sent")
+
+        # MongoDB
+        mongo_client = MongoClient(os.getenv("MONGO_URI"))
+        db = mongo_client["internshipDB"]
+        db["applications"].insert_one(user_data)
+        print("[+] MongoDB insert done")
+
+    except Exception as e:
+        print("[-] Error in background task:", str(e))
+
+def process_user_conversation(convo_text):
+    user_data = extract_user_info(convo_text)
+    threading.Thread(target=background_tasks, args=(user_data,)).start()
+    return f"Thanks {user_data['name']}! Your application is being processed."
 
 async def initialize_session(openai_ws):
     """Control initial session with OpenAI."""
@@ -675,8 +803,6 @@ async def initialize_session(openai_ws):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)
-
-
 
 
 
