@@ -444,11 +444,21 @@ Required Details:
 7. Preferred Start Date
 
 Process Flow:
-1. Eligibility verification
-2. Domain selection guidance
-3. Application collection
-4. Screening call scheduling
-5. Final confirmation
+1. Eligibility Verification :-
+    Check if the user meets the basic eligibility criteria for the internship (e.g., student status, availability, etc.).
+
+2. Domain Selection Guidance :- 
+    Help the user choose the most relevant domain based on their interest and skillset (e.g., Web Dev, AI, IoT, etc.).
+
+3. Application Collection :-
+    Collect all essential information from the user required details.
+
+4. User Detail Verification
+Cross-verify the submitted details for completeness and accuracy (e.g., format checks, required fields, duplicates if needed).
+
+5. Final Confirmation Message
+    Once verified, send a confirmation message :
+        "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
 
 Current Date: {current_date}
 Current Time: {current_time}
@@ -674,114 +684,303 @@ async def send_initial_conversation_item(openai_ws):
     await openai_ws.send(json.dumps(initial_conversation_item))
     await openai_ws.send(json.dumps({"type": "response.create"}))
 
-def extract_user_info(messages):
-    full_text = " ".join(re.findall(r'\[USER SAID\]: (.+)', messages, re.IGNORECASE))
-    name_match = re.search(r'my name is ([\w\s]+)', full_text, re.IGNORECASE)
-    email_match = re.search(r'[\w\.-]+@[\w\.-]+', full_text)
-    phone_match = re.search(r'(\+?\d[\d\s]{8,}\d)', full_text)
+# def extract_user_info(messages):
+#     full_text = " ".join(re.findall(r'\[USER SAID\]: (.+)', messages, re.IGNORECASE))
+#     name_match = re.search(r'my name is ([\w\s]+)', full_text, re.IGNORECASE)
+#     email_match = re.search(r'[\w\.-]+@[\w\.-]+', full_text)
+#     phone_match = re.search(r'(\+?\d[\d\s]{8,}\d)', full_text)
 
-    name = name_match.group(1).strip().title() if name_match else "Not Provided"
-    email = email_match.group(0) if email_match else "Not Provided"
-    phone = phone_match.group(1).replace(" ", "") if phone_match else "Not Provided"
+#     name = name_match.group(1).strip().title() if name_match else "Not Provided"
+#     email = email_match.group(0) if email_match else "Not Provided"
+#     phone = phone_match.group(1).replace(" ", "") if phone_match else "Not Provided"
 
-    return {
-        "name": name,
-        "email": email,
-        "phone": phone,
-        "message": full_text,
-        "raw_text": messages,
-        "timestamp": datetime.utcnow()
+#     return {
+#         "name": name,
+#         "email": email,
+#         "phone": phone,
+#         "message": full_text,
+#         "raw_text": messages,
+#         "timestamp": datetime.utcnow()
+#     }
+
+def spoken_to_email(text):
+    text = text.lower()
+    text = text.replace(" at the rate ", "@").replace(" dot ", ".").replace(" dash ", "-").replace(" underscore ", "_").replace(" ", "")
+    text = re.sub(r'(?<=\w)-(?=\w)', '', text)  # remove unnecessary hyphens between characters
+    return re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
+
+def normalize_phone(text):
+    text = text.lower()
+    digit_words = {
+        "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+        "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+        "plus": "+"
     }
 
-def background_tasks(user_data):
+    tokens = text.split()
+    digits = []
+    for token in tokens:
+        if token.isdigit():
+            digits.append(token)
+        elif token in digit_words:
+            digits.append(digit_words[token])
+        elif re.match(r'\+?\d+', token):
+            digits.append(token)
+
+    phone = ''.join(digits)
+    return phone if len(phone) >= 10 else None
+
+def extract_user_info(messages):
+    full_text = " ".join(re.findall(r'\[USER SAID\]: (.+)', messages, re.IGNORECASE)).lower()
+
+    # Name
+    name_match = re.search(r'my (full )?name is ([a-z\s]+)', full_text)
+    name = name_match.group(2).strip().title() if name_match else "Not Provided"
+
+    # Email (spoken-like and normal)
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', full_text)
+    if not email_match:
+        spoken_email = spoken_to_email(full_text)
+        email = spoken_email.group(0) if spoken_email else "Not Provided"
+    else:
+        email = email_match.group(0)
+
+    # Phone number
+    phone_match = re.search(r'(\+?\d[\d\s]{8,}\d)', full_text)
+    if phone_match:
+        phone = phone_match.group(1).replace(" ", "")
+    else:
+        phone = normalize_phone(full_text)
+        phone = phone if phone else "Not Provided"
+
+    # Institution
+    institution_match = re.search(r'(college|university) name is ([a-z\s]+)', full_text)
+    institution = institution_match.group(2).strip().title() if institution_match else "Not Provided"
+
+    # Current year / semester
+    year_match = re.search(r'(in my|currently in|i am in) (\d+)(st|nd|rd|th)? (year|semester)', full_text)
+    current_year = year_match.group(2) + " " + year_match.group(4) if year_match else "Not Provided"
+
+    # Domain
+    domain_match = re.search(r'internship.*?(in|for) ([\w\s]+)', full_text)
+    domain = domain_match.group(2).strip().title() if domain_match else "Not Provided"
+
+    # Skills
+    skills_match = re.search(r'(skills|experience) (of|in|with) ([\w\s,]+)', full_text)
+    skills = skills_match.group(3).strip().title() if skills_match else "Not Provided"
+
+    # Duration
+    duration_match = re.search(r'(internship|position|training) (duration|for) (\d+ ?(weeks?|months?|days?))', full_text)
+    duration = duration_match.group(3).strip() if duration_match else "Not Provided"
+
+    # Start Date
+    start_date_match = re.search(r'start (from|on|in)? (next term|[a-zA-Z]+\s?\d{0,4})', full_text)
+    start_date = start_date_match.group(2).strip().title() if start_date_match else "Not Provided"
+
+    return {
+        "Name": name,
+        "Phone": phone,
+        "Email": email,
+        "Institution": institution,
+        "Current_year": current_year,
+        "Domain": domain,
+        "Skills": skills,
+        "Duration": duration,
+        "Start_date": start_date,
+        "Raw_Message": full_text,
+        "Timestamp": datetime.utcnow().isoformat()
+    }
+
+# def background_tasks(user_data):
+#     try:
+#         # Google Sheets
+#         scope = [
+#             "https://spreadsheets.google.com/feeds",
+#             "https://www.googleapis.com/auth/spreadsheets",
+#             "https://www.googleapis.com/auth/drive.file",
+#             "https://www.googleapis.com/auth/drive"
+#         ]
+
+#         credentials_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+#         credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+#         gs_client = gspread.authorize(credentials)
+#         sheet = gs_client.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
+#         worksheet = sheet.worksheet("Test")
+#         # creds = ServiceAccountCredentials.from_json_keyfile_name("google-credentials.json", scope)
+#         # sheet_client = gspread.authorize(creds)
+#         # sheet = sheet_client.open("Internship Applications").sheet1
+#         worksheet.append_row([user_data['name'], user_data['email'], user_data['phone'], user_data['message']])
+#         print("[+] Saved to Google Sheets")
+
+#         # Twilio
+#         twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+#         twilio_client.messages.create(
+#             body=f"Hi {user_data['name']}, we've received your application. Thanks!",
+#             from_=os.getenv("TWILIO_PHONE_NUMBER"),
+#             to=user_data['phone']
+#         )
+#         twilio_client.messages.create(
+#             body=f"""Hello {user_data['name']},
+
+# # Thank you for applying for the internship at Infolabz!
+
+# # 📞 Phone: {user_data['phone']}
+# # 📧 Email: {user_data['email']}
+# # 🏫 Institution: {user_data['institution']}
+# # 🎯 Domain: {user_data['domain']}
+# # ⏳ Duration: {user_data['duration']}
+# # 📅 Preferred Start Date: {user_data['start_date']}
+
+# # ✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
+
+# # Best regards,  
+# # Infolabz Team""",
+#             from_=os.getenv("TWILIO_WHATSAPP_FROM"),
+#             to=f"whatsapp:{user_data['phone']}"
+#         )
+#         print("[+] Twilio messages sent")
+
+#         # Email
+#         # msg = MIMEText(f"""Hi {user_data['name']},\n\nThanks for applying. We'll get back to you shortly.\n\nMessage:\n{user_data['message']}""")
+#         # msg['Subject'] = "Internship Application Received"
+#         # msg['From'] = os.getenv("EMAIL_USER")
+#         # msg['To'] = user_data['email']
+        
+#         message_email = f"""Hello {user_data['name']},
+
+# # Thank you for applying for the internship at Infolabz!
+
+# # 📞 Phone: {user_data['phone']}
+# # 📧 Email: {user_data['email']}
+# # 🏫 Institution: {user_data['institution']}
+# # 🎯 Domain: {user_data['domain']}
+# # ⏳ Duration: {user_data['duration']}
+# # 📅 Preferred Start Date: {user_data['start_date']}
+
+# # ✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
+
+# # Best regards,  
+# # Infolabz Team"""
+#         email = EmailMessage()
+#         email["From"] = os.getenv("EMAIL_USER")
+#         email["To"] = user_data["email"]
+#         email["Subject"] = "Internship Application - Infolabz"
+#         email.set_content(message_email)
+#         with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
+#             server.starttls()
+#             server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+#             server.send_message(email)
+#         print("[+] Email sent")
+
+#         # MongoDB
+#         mongo_client = MongoClient(os.getenv("MONGO_URI"))
+#         db = mongo_client["infolabz"]
+#         db["conversations"].insert_one(user_data)
+#         print("[+] MongoDB insert done")
+
+#     except Exception as e:
+#         print("[-] Error in background task:", str(e))
+
+
+def background_tasks(messages):
     try:
-        # Google Sheets
+        # Step 1: Extract and validate
+        user_data = extract_user_info(messages)
+        required_fields = ['name', 'email', 'phone', 'institution', 'domain', 'duration', 'start_date']
+        for field in required_fields:
+            if user_data[field] == "Not Provided":
+                raise ValueError(f"Missing required field: {field}")
+
+        # Step 2: Google Sheets
         scope = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/drive"
         ]
-
         credentials_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
         credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
         gs_client = gspread.authorize(credentials)
         sheet = gs_client.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
         worksheet = sheet.worksheet("Test")
-        # creds = ServiceAccountCredentials.from_json_keyfile_name("google-credentials.json", scope)
-        # sheet_client = gspread.authorize(creds)
-        # sheet = sheet_client.open("Internship Applications").sheet1
-        worksheet.append_row([user_data['name'], user_data['email'], user_data['phone'], user_data['message']])
-        print("[+] Saved to Google Sheets")
+        worksheet.append_row([
+            user_data['name'],
+            user_data['email'],
+            user_data['phone'],
+            user_data.get('raw_message', ''),
+            user_data['institution'],
+            user_data['domain'],
+            user_data['duration'],
+            user_data['start_date']
+        ])
+        print("[+] Google Sheet updated")
 
-        # Twilio
+        # Step 3: Twilio - SMS & WhatsApp
         twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+        phone_number = user_data['phone']
+
         twilio_client.messages.create(
-            body=f"Hi {user_data['name']}, we've received your application. Thanks!",
+            body=f"Hi {user_data['name']}, we've received your internship application at Infolabz!",
             from_=os.getenv("TWILIO_PHONE_NUMBER"),
-            to=user_data['phone']
+            to=phone_number
         )
+
         twilio_client.messages.create(
             body=f"""Hello {user_data['name']},
 
-# Thank you for applying for the internship at Infolabz!
+Thank you for applying for the internship at Infolabz!
 
-# 📞 Phone: {user_data['phone']}
-# 📧 Email: {user_data['email']}
-# 🏫 Institution: {user_data['institution']}
-# 🎯 Domain: {user_data['domain']}
-# ⏳ Duration: {user_data['duration']}
-# 📅 Preferred Start Date: {user_data['start_date']}
+📞 Phone: {user_data['phone']}
+📧 Email: {user_data['email']}
+🏫 Institution: {user_data['institution']}
+🎯 Domain: {user_data['domain']}
+⏳ Duration: {user_data['duration']}
+📅 Preferred Start Date: {user_data['start_date']}
 
-# ✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
+✅ We have received your details successfully. Our team will contact you shortly.
 
-# Best regards,  
-# Infolabz Team""",
+Best regards,  
+Infolabz Team""",
             from_=os.getenv("TWILIO_WHATSAPP_FROM"),
-            to=f"whatsapp:{user_data['phone']}"
+            to=f"whatsapp:{phone_number}"
         )
         print("[+] Twilio messages sent")
 
-        # Email
-        # msg = MIMEText(f"""Hi {user_data['name']},\n\nThanks for applying. We'll get back to you shortly.\n\nMessage:\n{user_data['message']}""")
-        # msg['Subject'] = "Internship Application Received"
-        # msg['From'] = os.getenv("EMAIL_USER")
-        # msg['To'] = user_data['email']
-        
-        message_email = f"""Hello {user_data['name']},
-
-# Thank you for applying for the internship at Infolabz!
-
-# 📞 Phone: {user_data['phone']}
-# 📧 Email: {user_data['email']}
-# 🏫 Institution: {user_data['institution']}
-# 🎯 Domain: {user_data['domain']}
-# ⏳ Duration: {user_data['duration']}
-# 📅 Preferred Start Date: {user_data['start_date']}
-
-# ✅ We have received your details successfully. Our team will contact you in a few days with the next steps.
-
-# Best regards,  
-# Infolabz Team"""
+        # Step 4: Email
         email = EmailMessage()
         email["From"] = os.getenv("EMAIL_USER")
         email["To"] = user_data["email"]
-        email["Subject"] = "Internship Application - Infolabz"
-        email.set_content(message_email)
+        email["Subject"] = "Internship Application Received - Infolabz"
+        email.set_content(f"""Hello {user_data['name']},
+
+Thank you for applying for the internship at Infolabz!
+
+📞 Phone: {user_data['phone']}
+📧 Email: {user_data['email']}
+🏫 Institution: {user_data['institution']}
+🎯 Domain: {user_data['domain']}
+⏳ Duration: {user_data['duration']}
+📅 Preferred Start Date: {user_data['start_date']}
+
+✅ We have received your details successfully. Our team will contact you soon.
+
+Regards,  
+Infolabz Team""")
+
         with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
             server.starttls()
             server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
             server.send_message(email)
         print("[+] Email sent")
 
-        # MongoDB
+        # Step 5: MongoDB
         mongo_client = MongoClient(os.getenv("MONGO_URI"))
-        db = mongo_client["internshipDB"]
-        db["applications"].insert_one(user_data)
-        print("[+] MongoDB insert done")
+        db = mongo_client["infolabz"]
+        db["conversations"].insert_one(user_data)
+        print("[+] MongoDB insert complete")
 
     except Exception as e:
-        print("[-] Error in background task:", str(e))
+        print("[-] Background task error:", str(e))
 
 def process_user_conversation(convo_text):
     user_data = extract_user_info(convo_text)
