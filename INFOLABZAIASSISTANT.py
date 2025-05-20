@@ -746,7 +746,7 @@ def extract_user_info(messages):
         email = email_match.group(0)
 
     # Phone number
-    phone_match = re.search(r'(\+?\d[\d\s]{8,}\d)', full_text)
+    phone_match = re.search(r'(\+?\d[\d\s]{12,}\d)', full_text)
     if phone_match:
         phone = phone_match.group(1).replace(" ", "")
     else:
