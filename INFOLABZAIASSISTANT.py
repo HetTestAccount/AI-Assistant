@@ -881,17 +881,14 @@ def extract_user_info(messages):
 #     except Exception as e:
 #         print("[-] Error in background task:", str(e))
 
-
-def background_tasks(messages):
+def background_tasks(user_data):
     try:
-        # Step 1: Extract and validate
-        user_data = extract_user_info(messages)
         required_fields = ['name', 'email', 'phone', 'institution', 'domain', 'duration', 'start_date']
         for field in required_fields:
-            if user_data[field] == "Not Provided":
+            if field not in user_data or not user_data[field] or user_data[field] == "Not Provided":
                 raise ValueError(f"Missing required field: {field}")
 
-        # Step 2: Google Sheets
+        # Step 1: Save to Google Sheets
         scope = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/spreadsheets",
@@ -907,7 +904,7 @@ def background_tasks(messages):
             user_data['name'],
             user_data['email'],
             user_data['phone'],
-            user_data.get('raw_message', ''),
+            user_data.get('message', ''),
             user_data['institution'],
             user_data['domain'],
             user_data['duration'],
@@ -915,57 +912,47 @@ def background_tasks(messages):
         ])
         print("[+] Google Sheet updated")
 
-        # Step 3: Twilio - SMS & WhatsApp
+        # Step 2: Send SMS & WhatsApp via Twilio
         twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
         phone_number = user_data['phone']
 
+        message_body = f"Hi {user_data['name']}, we have received your internship application at Infolabz. Our team will contact you shortly."
+
         twilio_client.messages.create(
-            body=f"Hi {user_data['name']}, we've received your internship application at Infolabz!",
+            body=message_body,
             from_=os.getenv("TWILIO_PHONE_NUMBER"),
             to=phone_number
         )
 
+        whatsapp_body = f"""Hello {user_data['name']},
+
+                                        ✅ You have successfully registered/enquired for the internship at Infolabz with the following details:
+
+                                        📞 Phone: {user_data['phone']}
+                                        📧 Email: {user_data['email']}
+                                        🏫 Institution: {user_data['institution']}
+                                        🎯 Domain: {user_data['domain']}
+                                        ⏳ Duration: {user_data['duration']}
+                                        📅 Preferred Start Date: {user_data['start_date']}
+
+                                        One of our team members will contact you shortly regarding the next steps.
+
+                                        Regards,  
+                                        Infolabz Team"""
+
         twilio_client.messages.create(
-            body=f"""Hello {user_data['name']},
-
-Thank you for applying for the internship at Infolabz!
-
-📞 Phone: {user_data['phone']}
-📧 Email: {user_data['email']}
-🏫 Institution: {user_data['institution']}
-🎯 Domain: {user_data['domain']}
-⏳ Duration: {user_data['duration']}
-📅 Preferred Start Date: {user_data['start_date']}
-
-✅ We have received your details successfully. Our team will contact you shortly.
-
-Best regards,  
-Infolabz Team""",
+            body=whatsapp_body,
             from_=os.getenv("TWILIO_WHATSAPP_FROM"),
             to=f"whatsapp:{phone_number}"
         )
         print("[+] Twilio messages sent")
 
-        # Step 4: Email
+        # Step 3: Send Email
         email = EmailMessage()
         email["From"] = os.getenv("EMAIL_USER")
         email["To"] = user_data["email"]
         email["Subject"] = "Internship Application Received - Infolabz"
-        email.set_content(f"""Hello {user_data['name']},
-
-Thank you for applying for the internship at Infolabz!
-
-📞 Phone: {user_data['phone']}
-📧 Email: {user_data['email']}
-🏫 Institution: {user_data['institution']}
-🎯 Domain: {user_data['domain']}
-⏳ Duration: {user_data['duration']}
-📅 Preferred Start Date: {user_data['start_date']}
-
-✅ We have received your details successfully. Our team will contact you soon.
-
-Regards,  
-Infolabz Team""")
+        email.set_content(whatsapp_body)
 
         with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
             server.starttls()
@@ -973,7 +960,7 @@ Infolabz Team""")
             server.send_message(email)
         print("[+] Email sent")
 
-        # Step 5: MongoDB
+        # Step 4: Store in MongoDB
         mongo_client = MongoClient(os.getenv("MONGO_URI"))
         db = mongo_client["infolabz"]
         db["conversations"].insert_one(user_data)
