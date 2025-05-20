@@ -570,7 +570,9 @@ async def handle_media_stream(websocket: WebSocket):
                     try:
                         if response.get('type') == 'response.done':
                             print("Conversation finished. Processing user data...")
-                            print("Response Done: ",response)
+                            print("Response Done: ",response['response']['output'][0]['content'][0]['transcript'])
+                            bot_text2 = response['response']['output'][0]['content'][0]['transcript']
+                            print("[BOT SAID]:", bot_text2)
                             process_user_conversation(conversation_transcript)
                     except Exception as e:
                         print("Respons.Done error on line 560:",e)
