@@ -417,6 +417,61 @@ current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
 
+# SYSTEM_MESSAGE = f"""
+# I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
+
+# Key Information:
+# - Internship Domains:
+#   1. Web Development (React, Django)
+#   2. Mobile App Development (Flutter, Android)
+#   3. Custom Software Solutions
+#   4. IoT Development
+#   5. UI/UX Design
+#   6. Data Science & Machine Learning
+
+# Application Requirements:
+# - Must be enrolled in BCA/MCA/Diploma/Degree program
+# - Basic programming knowledge preferred
+# - Duration options: 3 or 6 months
+
+# Required Details:
+# 1. Full Name
+# 2. Contact Information (Phone/Email)
+# 3. Educational Institution
+# 4. Current Year/Semester
+# 5. Preferred Internship Domain
+# 6. Technical Skills
+# 7. Preferred Start Date
+
+# Process Flow:
+# 1. Eligibility Verification :-
+#     Check if the user meets the basic eligibility criteria for the internship (e.g., student status, availability, etc.).
+
+# 2. Domain Selection Guidance :- 
+#     Help the user choose the most relevant domain based on their interest and skillset (e.g., Web Dev, AI, IoT, etc.).
+
+# 3. Application Collection :-
+#     Collect all essential information from the user required details.
+
+# 4. User Detail Verification
+# Cross-verify the submitted details for completeness and accuracy (e.g., format checks, required fields, duplicates if needed).
+
+# 5. Final Confirmation Message
+#     Once verified, send a confirmation message :
+#         "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
+
+# Current Date: {current_date}
+# Current Time: {current_time}
+
+# Behavior Guidelines:
+# 1. Always verify educational status first
+# 2. Explain AICTE benefits clearly
+# 3. Provide real project examples when discussing domains
+# 4. Be encouraging but realistic about expectations
+# 5. For technical queries, reference our actual tech stack
+# 6. Maintain professional yet student-friendly tone
+# """
+
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
 
@@ -453,12 +508,17 @@ Process Flow:
 3. Application Collection :-
     Collect all essential information from the user required details.
 
-4. User Detail Verification
-Cross-verify the submitted details for completeness and accuracy (e.g., format checks, required fields, duplicates if needed).
+4. User Detail Verification :-
+    Cross-verify the submitted details for completeness and accuracy:
+    - For **names, email addresses, and phone numbers**, **spell them out clearly**.
+    - If any detail appears unclear or incomplete, **politely ask the user to spell it out**.
+      For example: “Could you please spell your full name?” or “Can you confirm your email ID letter by letter?”
+    - Check for proper format (e.g., valid email format, 10-digit phone number).
+    - Ensure that all fields are filled and are not duplicated.
 
-5. Final Confirmation Message
-    Once verified, send a confirmation message :
-        "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
+5. Final Confirmation Message :-
+    Once verified, send a confirmation message:
+    "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
 
 Current Date: {current_date}
 Current Time: {current_time}
@@ -470,7 +530,9 @@ Behavior Guidelines:
 4. Be encouraging but realistic about expectations
 5. For technical queries, reference our actual tech stack
 6. Maintain professional yet student-friendly tone
+7. During detail verification, ensure clarity by confirming critical fields via spelling if needed
 """
+
 
 VOICE = 'alloy'
 # VOICE = 'Polly.Raveena'
@@ -730,66 +792,79 @@ def normalize_phone(text):
     phone = ''.join(digits)
     return phone if len(phone) >= 10 else None
 
-def extract_user_info(messages):
-    full_text = " ".join(re.findall(r'\[USER SAID\]: (.+)', messages, re.IGNORECASE)).lower()
-
-    # Name
-    name_match = re.search(r'my (full )?name is ([a-z\s]+)', full_text)
-    name = name_match.group(2).strip().title() if name_match else "Not Provided"
-
-    # Email (spoken-like and normal)
-    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', full_text)
-    if not email_match:
-        spoken_email = spoken_to_email(full_text)
-        email = spoken_email.group(0) if spoken_email else "Not Provided"
-    else:
-        email = email_match.group(0)
-
-    # Phone number
-    phone_match = re.search(r'(\+?\d[\d\s]{12,}\d)', full_text)
-    if phone_match:
-        phone = phone_match.group(1).replace(" ", "")
-    else:
-        phone = normalize_phone(full_text)
-        phone = phone if phone else "Not Provided"
-
-    # Institution
-    institution_match = re.search(r'(college|university) name is ([a-z\s]+)', full_text)
-    institution = institution_match.group(2).strip().title() if institution_match else "Not Provided"
-
-    # Current year / semester
-    year_match = re.search(r'(in my|currently in|i am in) (\d+)(st|nd|rd|th)? (year|semester)', full_text)
-    current_year = year_match.group(2) + " " + year_match.group(4) if year_match else "Not Provided"
-
-    # Domain
-    domain_match = re.search(r'internship.*?(in|for) ([\w\s]+)', full_text)
-    domain = domain_match.group(2).strip().title() if domain_match else "Not Provided"
-
-    # Skills
-    skills_match = re.search(r'(skills|experience) (of|in|with) ([\w\s,]+)', full_text)
-    skills = skills_match.group(3).strip().title() if skills_match else "Not Provided"
-
-    # Duration
-    duration_match = re.search(r'(internship|position|training) (duration|for) (\d+ ?(weeks?|months?|days?))', full_text)
-    duration = duration_match.group(3).strip() if duration_match else "Not Provided"
-
-    # Start Date
-    start_date_match = re.search(r'start (from|on|in)? (next term|[a-zA-Z]+\s?\d{0,4})', full_text)
-    start_date = start_date_match.group(2).strip().title() if start_date_match else "Not Provided"
-
-    return {
-        "Name": name,
-        "Phone": phone,
-        "Email": email,
-        "Institution": institution,
-        "Current_year": current_year,
-        "Domain": domain,
-        "Skills": skills,
-        "Duration": duration,
-        "Start_date": start_date,
-        "Raw_Message": full_text,
-        "Timestamp": datetime.utcnow().isoformat()
+def extract_user_info(full_text):
+    user_data = {
+        "name": "Not Provided",
+        "email": "Not Provided",
+        "phone": "Not Provided",
+        "institution": "Not Provided",
+        "domain": "Not Provided",
+        "duration": "Not Provided",
+        "start_date": "Not Provided",
+        "message": full_text.strip()
     }
+
+    # Normalize
+    full_text = full_text.lower().replace('\n', ' ')
+
+    # Extract Name
+    name_match = re.search(r"(my (full )?name is|i am|this is|it's|name's|name is)\s+([a-z\s]+)", full_text)
+    if name_match:
+        user_data["name"] = name_match.group(3).strip().title()
+
+    # Extract Phone (match multiple digit formats)
+    phone_matches = re.findall(r'\b(?:\+?1\s*)?(\d[\d\s\-]{9,})\b', full_text)
+    if phone_matches:
+        phone_cleaned = re.sub(r'\D', '', phone_matches[-1])  # Take the last one as most updated
+        if len(phone_cleaned) >= 10:
+            user_data["phone"] = "+1" + phone_cleaned[-10:]
+
+    # Extract Email (handle fragmented or full email)
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', full_text)
+    if email_match:
+        user_data["email"] = email_match.group(0)
+    else:
+        # Try to reconstruct from spoken email fragments
+        spoken_email_match = re.search(
+            r'([a-z0-9\.]+)\s*(at|@)\s*(attherategmail\.com|theredgmail\.com|gmail\.com|gmail\.co|gmail\.net|gmail\.org)', full_text
+        )
+        if spoken_email_match:
+            user_data["email"] = (
+                spoken_email_match.group(1).replace(" ", "") + "@gmail.com"
+            )
+
+    # Extract Institution / College
+    inst_match = re.search(r'(college|university|institution)[\s\w]*?is\s+([a-z\s]+)', full_text)
+    if inst_match:
+        user_data["institution"] = inst_match.group(2).strip().title()
+    else:
+        inst_name_match = re.search(r'(?:at|from)\s+([a-z\s]+university|college)', full_text)
+        if inst_name_match:
+            user_data["institution"] = inst_name_match.group(1).strip().title()
+
+    # Extract Domain (e.g., web developer, ML, etc.)
+    domain_match = re.search(r'(domain|field|position|apply for|internship in)\s+(?:is\s+)?([a-z\s]+)', full_text)
+    if domain_match:
+        user_data["domain"] = domain_match.group(2).strip().title()
+    else:
+        # Fallback: look for common fields
+        common_domains = ['web development', 'machine learning', 'data science', 'ui/ux', 'android']
+        for domain in common_domains:
+            if domain in full_text:
+                user_data["domain"] = domain.title()
+                break
+
+    # Extract Duration (e.g., "2 months", "8 weeks")
+    duration_match = re.search(r'(duration|internship duration|for)\s+(?:is\s+)?(\d+\s*(weeks?|months?))', full_text)
+    if duration_match:
+        user_data["duration"] = duration_match.group(2)
+
+    # Extract Start Date
+    start_date_match = re.search(r'(start|starting|start date|from)\s+(next\s+term|month|week|[a-z]+\s+\d{1,2})', full_text)
+    if start_date_match:
+        user_data["start_date"] = start_date_match.group(2).strip()
+
+    return user_data
 
 # def background_tasks(user_data):
 #     try:
@@ -886,8 +961,7 @@ def background_tasks(user_data):
         required_fields = ['name', 'email', 'phone', 'institution', 'domain', 'duration', 'start_date']
         for field in required_fields:
             if field not in user_data or not user_data[field] or user_data[field] == "Not Provided":
-                raise ValueError(f"Missing required field: {field}")
-
+                print(f"[!] Warning: Missing or incomplete field: {field}")
         # Step 1: Save to Google Sheets
         scope = [
             "https://spreadsheets.google.com/feeds",
