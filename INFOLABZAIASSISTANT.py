@@ -570,6 +570,12 @@ async def handle_incoming_call(request: Request):
     # Log or use this number
     print(f"Incoming call from: {caller_number}")
 
+    try:
+        callingnumber = request.form.get("From")
+        print("[!] Able to get the Data",callingnumber)
+    except Exception as e:
+        print("[!] Not able to get the Data",e)
+
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
     # <Say> punctuation to improve text-to-speech flow
