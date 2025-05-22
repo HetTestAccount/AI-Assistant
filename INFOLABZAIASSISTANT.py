@@ -571,8 +571,10 @@ async def handle_incoming_call(request: Request):
     print(f"Incoming call from: {caller_number}")
 
     try:
-        callingnumber = request.form["From"]
+        callingnumber = request.form["from"]
+        callingnumber1 = request.form.get["from"]
         print("[!] Able to get the Data",callingnumber)
+        print("[!] Able to get the Data",callingnumber1)
     except Exception as e:
         print("[!] Not able to get the Data",e)
 
@@ -644,9 +646,9 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
-                    print("All responses: ",response)
-                    if response['type'] in LOG_EVENT_TYPES:
-                        print(f"Received event: {response['type']}", response)
+                    # print("All responses: ",response)
+                    # if response['type'] in LOG_EVENT_TYPES:
+                        # print(f"Received event: {response['type']}", response)
                     if response.get('type') == 'conversation.item.input_audio_transcription.completed':
                         print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
                         user_text = response['transcript']
@@ -663,10 +665,11 @@ async def handle_media_stream(websocket: WebSocket):
                     try:
                         if response.get('type') == 'response.done':
                             print("Conversation finished. Processing user data...")
-                            print("Response Done: ",response['response']['output'][0]['content'][0]['transcript'])
-                            bot_text2 = response['response']['output'][0]['content'][0]['transcript']
-                            print("[BOT SAID]:", bot_text2)
-                            process_user_conversation(conversation_transcript)
+                            if len(response['response']['output']) != 0:
+                                bot_text2 = response['response']['output'][0]['content'][0]['transcript']
+                                print("[BOT SAID]:", bot_text2)
+                                conversation_transcript += f"[BOT SAID]: {bot_text}\n"
+                                process_user_conversation(conversation_transcript)
                     except Exception as e:
                         print("Respons.Done error on line 560:",e)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
@@ -796,6 +799,8 @@ def spoken_to_digits(text):
             digits.append(token)
         elif re.fullmatch(r"\+?\d+", token):
             digits.append(token)
+        elif re.search(r"Phone Number:\s*(\+?\d[\d\s\-]+)",token):
+            digits.append(token)
 
     return ''.join(digits)
 
@@ -857,6 +862,7 @@ def extract_user_info(user_messages):
     # Extract name
     name_patterns = [
         r"my name is ([a-zA-Z ]+)",
+        r"Full Name:\s*(.+)",
         r"i'?m ([a-zA-Z ]+)",
         r"this is ([a-zA-Z ]+)"
     ]
@@ -870,7 +876,8 @@ def extract_user_info(user_messages):
     institution_patterns = [
         r"college name is ([a-zA-Z ]+)",
         r"university is ([a-zA-Z ]+)",
-        r"from ([a-zA-Z ]+ university)"
+        r"from ([a-zA-Z ]+ university)",
+        r"Educational Institution:\s*(.+)"
     ]
     for pattern in institution_patterns:
         match = re.search(pattern, full_text)
@@ -895,7 +902,8 @@ def extract_user_info(user_messages):
     if "next term" in full_text:
         user_data['start_date'] = "Next Term"
     elif "start from" in full_text:
-        start_match = re.search(r"start from ([a-zA-Z0-9 ]+)", full_text)
+        # start_match = re.search(r"start from ([a-zA-Z0-9 ]+)", full_text)
+        start_match = re.search(r"Preferred Start Date:\s*(.+)", full_text)
         if start_match:
             user_data['start_date'] = start_match.group(1).strip().title()
 
@@ -1032,7 +1040,10 @@ def background_tasks(user_data):
                 from_=os.getenv("TWILIO_PHONE_NUMBER"),
                 to=phone_number
             )
+        except Exception as e:
+            print("[+] Skipped the SMS Block due to the following error:",e)
 
+        try:
             whatsapp_body = f"""Hello {user_data['name']},
 
                                             ✅ You have successfully registered/enquired for the internship at Infolabz with the following details:
@@ -1048,11 +1059,6 @@ def background_tasks(user_data):
 
                                             Regards,  
                                             Infolabz Team"""
-        except Exception as e:
-            print("[+] Skipped the SMS Block due to the following error:",e)
-
-        try:
-
             twilio_client.messages.create(
                 body=whatsapp_body,
                 from_=os.getenv("TWILIO_WHATSAPP_FROM"),
@@ -1064,6 +1070,21 @@ def background_tasks(user_data):
 
         try:
         # Step 3: Send Email
+            whatsapp_body = f"""Hello {user_data['name']},
+
+                                            ✅ You have successfully registered/enquired for the internship at Infolabz with the following details:
+
+                                            📞 Phone: {user_data['phone']}
+                                            📧 Email: {user_data['email']}
+                                            🏫 Institution: {user_data['institution']}
+                                            🎯 Domain: {user_data['domain']}
+                                            ⏳ Duration: {user_data['duration']}
+                                            📅 Preferred Start Date: {user_data['start_date']}
+
+                                            One of our team members will contact you shortly regarding the next steps.
+
+                                            Regards,  
+                                            Infolabz Team"""
             email = EmailMessage()
             email["From"] = os.getenv("EMAIL_USER")
             email["To"] = user_data["email"]
