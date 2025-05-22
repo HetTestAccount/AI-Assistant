@@ -572,11 +572,11 @@ async def handle_incoming_call(request: Request):
 
     try:
         callingnumber = request.form["from"]
-        print("[!] Able to get the Data",callingnumber)
+        print("[!] Able to get the Data From",callingnumber)
         try:
             callingnumber1 = request.form.get["from"]
         except:
-            print("[!] Able to get the Data",callingnumber1)
+            print("[!] Able to get the Data Get",callingnumber1)
     except Exception as e:
         print("[!] Not able to get the Data",e)
 
@@ -1125,7 +1125,8 @@ async def initialize_session(openai_ws):
             "output_audio_format": "g711_ulaw",
             "input_audio_transcription": {"model": "whisper-1"},
             "voice": VOICE,
-            "instructions": SYSTEM_MESSAGE +  "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
+            # "instructions": SYSTEM_MESSAGE +  "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
+            "instructions": SYSTEM_MESSAGE,
             "modalities": ["text", "audio"],
             "temperature": 0.9,
         }
