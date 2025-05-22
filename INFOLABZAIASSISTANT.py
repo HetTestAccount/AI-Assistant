@@ -572,9 +572,11 @@ async def handle_incoming_call(request: Request):
 
     try:
         callingnumber = request.form["from"]
-        callingnumber1 = request.form.get["from"]
         print("[!] Able to get the Data",callingnumber)
-        print("[!] Able to get the Data",callingnumber1)
+        try:
+            callingnumber1 = request.form.get["from"]
+        except:
+            print("[!] Able to get the Data",callingnumber1)
     except Exception as e:
         print("[!] Not able to get the Data",e)
 
