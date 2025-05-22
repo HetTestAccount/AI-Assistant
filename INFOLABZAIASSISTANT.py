@@ -417,61 +417,6 @@ current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
 
-# SYSTEM_MESSAGE = f"""
-# I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
-
-# Key Information:
-# - Internship Domains:
-#   1. Web Development (React, Django)
-#   2. Mobile App Development (Flutter, Android)
-#   3. Custom Software Solutions
-#   4. IoT Development
-#   5. UI/UX Design
-#   6. Data Science & Machine Learning
-
-# Application Requirements:
-# - Must be enrolled in BCA/MCA/Diploma/Degree program
-# - Basic programming knowledge preferred
-# - Duration options: 3 or 6 months
-
-# Required Details:
-# 1. Full Name
-# 2. Contact Information (Phone/Email)
-# 3. Educational Institution
-# 4. Current Year/Semester
-# 5. Preferred Internship Domain
-# 6. Technical Skills
-# 7. Preferred Start Date
-
-# Process Flow:
-# 1. Eligibility Verification :-
-#     Check if the user meets the basic eligibility criteria for the internship (e.g., student status, availability, etc.).
-
-# 2. Domain Selection Guidance :- 
-#     Help the user choose the most relevant domain based on their interest and skillset (e.g., Web Dev, AI, IoT, etc.).
-
-# 3. Application Collection :-
-#     Collect all essential information from the user required details.
-
-# 4. User Detail Verification
-# Cross-verify the submitted details for completeness and accuracy (e.g., format checks, required fields, duplicates if needed).
-
-# 5. Final Confirmation Message
-#     Once verified, send a confirmation message :
-#         "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
-
-# Current Date: {current_date}
-# Current Time: {current_time}
-
-# Behavior Guidelines:
-# 1. Always verify educational status first
-# 2. Explain AICTE benefits clearly
-# 3. Provide real project examples when discussing domains
-# 4. Be encouraging but realistic about expectations
-# 5. For technical queries, reference our actual tech stack
-# 6. Maintain professional yet student-friendly tone
-# """
-
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
 
@@ -508,17 +453,20 @@ Process Flow:
 3. Application Collection :-
     Collect all essential information from the user required details.
 
-4. User Detail Verification :-
-    Cross-verify the submitted details for completeness and accuracy:
+# 4. User Detail Verification
+# Cross-verify the submitted details for completeness and accuracy (e.g., format checks, required fields, duplicates if needed).
+
+4. User Detail Verification
+Cross-verify the submitted details for completeness and accuracy (e.g., format checks, required fields, duplicates if needed).
     - For **names, email addresses, and phone numbers**, **spell them out clearly**.
     - If any detail appears unclear or incomplete, **politely ask the user to spell it out**.
       For example: “Could you please spell your full name?” or “Can you confirm your email ID letter by letter?”
     - Check for proper format (e.g., valid email format, 10-digit phone number).
     - Ensure that all fields are filled and are not duplicated.
 
-5. Final Confirmation Message :-
-    Once verified, send a confirmation message:
-    "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
+5. Final Confirmation Message
+    Once verified, send a confirmation message :
+        "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
 
 Current Date: {current_date}
 Current Time: {current_time}
@@ -530,8 +478,68 @@ Behavior Guidelines:
 4. Be encouraging but realistic about expectations
 5. For technical queries, reference our actual tech stack
 6. Maintain professional yet student-friendly tone
-7. During detail verification, ensure clarity by confirming critical fields via spelling if needed
 """
+
+# SYSTEM_MESSAGE = f"""
+# I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
+
+# Key Information:
+# - Internship Domains:
+#   1. Web Development (React, Django)
+#   2. Mobile App Development (Flutter, Android)
+#   3. Custom Software Solutions
+#   4. IoT Development
+#   5. UI/UX Design
+#   6. Data Science & Machine Learning
+
+# Application Requirements:
+# - Must be enrolled in BCA/MCA/Diploma/Degree program
+# - Basic programming knowledge preferred
+# - Duration options: 3 or 6 months
+
+# Required Details:
+# 1. Full Name
+# 2. Contact Information (Phone/Email)
+# 3. Educational Institution
+# 4. Current Year/Semester
+# 5. Preferred Internship Domain
+# 6. Technical Skills
+# 7. Preferred Start Date
+
+# Process Flow:
+# 1. Eligibility Verification :-
+#     Check if the user meets the basic eligibility criteria for the internship (e.g., student status, availability, etc.).
+
+# 2. Domain Selection Guidance :- 
+#     Help the user choose the most relevant domain based on their interest and skillset (e.g., Web Dev, AI, IoT, etc.).
+
+# 3. Application Collection :-
+#     Collect all essential information from the user required details.
+
+# 4. User Detail Verification :-
+#     Cross-verify the submitted details for completeness and accuracy:
+#     - For **names, email addresses, and phone numbers**, **spell them out clearly**.
+#     - If any detail appears unclear or incomplete, **politely ask the user to spell it out**.
+#       For example: “Could you please spell your full name?” or “Can you confirm your email ID letter by letter?”
+#     - Check for proper format (e.g., valid email format, 10-digit phone number).
+#     - Ensure that all fields are filled and are not duplicated.
+
+# 5. Final Confirmation Message :-
+#     Once verified, send a confirmation message:
+#     "You have successfully registered/enquired for the internship at Infolabz with the following details. One of our team members will contact you shortly to guide you through the next steps."
+
+# Current Date: {current_date}
+# Current Time: {current_time}
+
+# Behavior Guidelines:
+# 1. Always verify educational status first
+# 2. Explain AICTE benefits clearly
+# 3. Provide real project examples when discussing domains
+# 4. Be encouraging but realistic about expectations
+# 5. For technical queries, reference our actual tech stack
+# 6. Maintain professional yet student-friendly tone
+# 7. During detail verification, ensure clarity by confirming critical fields via spelling if needed
+# """
 
 
 VOICE = 'alloy'
@@ -564,6 +572,12 @@ async def handle_incoming_call(request: Request):
         caller_number = request.form
         print(f"Incoming call from: {caller_number}")
 
+
+    try:
+        callingnumber = request.form.get("From")
+        print("[!] Able to get the Data",callingnumber)
+    except Exception as e:
+        print("[!] Not able to get the Data",e)
 
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
@@ -769,104 +783,125 @@ async def send_initial_conversation_item(openai_ws):
 #         "timestamp": datetime.utcnow()
 #     }
 
-def spoken_to_email(text):
-    text = text.lower()
-    text = text.replace(" at the rate ", "@").replace(" dot ", ".").replace(" dash ", "-").replace(" underscore ", "_").replace(" ", "")
-    text = re.sub(r'(?<=\w)-(?=\w)', '', text)  # remove unnecessary hyphens between characters
-    return re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
+digit_words = {
+    "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+    "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+    "plus": "+"
+}
 
-def normalize_phone(text):
-    text = text.lower()
-    digit_words = {
-        "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
-        "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
-        "plus": "+"
-    }
-
-    tokens = text.split()
+def spoken_to_digits(text):
+    tokens = text.lower().split()
     digits = []
+
     for token in tokens:
-        if token.isdigit():
-            digits.append(token)
-        elif token in digit_words:
+        if token in digit_words:
             digits.append(digit_words[token])
-        elif re.match(r'\+?\d+', token):
+        elif token.isdigit():
+            digits.append(token)
+        elif re.fullmatch(r"\+?\d+", token):
             digits.append(token)
 
-    phone = ''.join(digits)
-    return phone if len(phone) >= 10 else None
+    return ''.join(digits)
 
-def extract_user_info(full_text):
+def extract_phone_number(conversation_lines):
+    phone_cue_keywords = ["contact", "mobile", "phone", "reach", "call", "number", "+"]
+
+    candidates = []
+    for line in conversation_lines:
+        if any(keyword in line.lower() for keyword in phone_cue_keywords) or re.search(r'\d', line):
+            digits = spoken_to_digits(line)
+            if len(digits) >= 10:
+                candidates.append(digits)
+
+    if candidates:
+        phone_number = max(candidates, key=len)
+        if not phone_number.startswith('+') and len(phone_number) >= 10:
+            phone_number = '+' + phone_number
+        return phone_number
+    return None
+
+def extract_email_address(conversation_lines):
+    email_patterns = ["email", "mail", "gmail", "@", "dot com", "at the rate"]
+
+    for line in conversation_lines:
+        line_lower = line.lower()
+        if any(kw in line_lower for kw in email_patterns):
+            clean_line = (
+                line_lower.replace(" at the rate ", "@")
+                .replace(" at ", "@")
+                .replace(" dot ", ".")
+                .replace(" dash ", "-")
+                .replace(" underscore ", "_")
+                .replace(" underscore", "_")
+                .replace(" ", "")
+            )
+            clean_line = re.sub(r'(?<=\w)-(?=\w)', '', clean_line)
+            match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', clean_line)
+            if match:
+                return match.group()
+    return None
+
+def extract_user_info(user_messages):
     user_data = {
-        "name": "Not Provided",
-        "email": "Not Provided",
-        "phone": "Not Provided",
-        "institution": "Not Provided",
-        "domain": "Not Provided",
-        "duration": "Not Provided",
-        "start_date": "Not Provided",
-        "message": full_text.strip()
+        'name': 'Not Provided',
+        'email': 'Not Provided',
+        'phone': 'Not Provided',
+        'institution': 'Not Provided',
+        'domain': 'Not Provided',
+        'duration': 'Not Provided',
+        'start_date': 'Not Provided',
+        'message': ' '.join(user_messages)
     }
 
-    # Normalize
-    full_text = full_text.lower().replace('\n', ' ')
+    full_text = ' '.join(user_messages).lower()
 
-    # Extract Name
-    name_match = re.search(r"(my (full )?name is|i am|this is|it's|name's|name is)\s+([a-z\s]+)", full_text)
-    if name_match:
-        user_data["name"] = name_match.group(3).strip().title()
+    user_data['email'] = extract_email_address(full_text) or "Not Provided"
+    user_data['phone'] = extract_phone_number(full_text) or "Not Provided"
 
-    # Extract Phone (match multiple digit formats)
-    phone_matches = re.findall(r'\b(?:\+?1\s*)?(\d[\d\s\-]{9,})\b', full_text)
-    if phone_matches:
-        phone_cleaned = re.sub(r'\D', '', phone_matches[-1])  # Take the last one as most updated
-        if len(phone_cleaned) >= 10:
-            user_data["phone"] = "+1" + phone_cleaned[-10:]
+    # Extract name
+    name_patterns = [
+        r"my name is ([a-zA-Z ]+)",
+        r"i'?m ([a-zA-Z ]+)",
+        r"this is ([a-zA-Z ]+)"
+    ]
+    for pattern in name_patterns:
+        match = re.search(pattern, full_text)
+        if match:
+            user_data['name'] = match.group(1).strip().title()
+            break
 
-    # Extract Email (handle fragmented or full email)
-    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', full_text)
-    if email_match:
-        user_data["email"] = email_match.group(0)
-    else:
-        # Try to reconstruct from spoken email fragments
-        spoken_email_match = re.search(
-            r'([a-z0-9\.]+)\s*(at|@)\s*(attherategmail\.com|theredgmail\.com|gmail\.com|gmail\.co|gmail\.net|gmail\.org)', full_text
-        )
-        if spoken_email_match:
-            user_data["email"] = (
-                spoken_email_match.group(1).replace(" ", "") + "@gmail.com"
-            )
+    # Extract institution
+    institution_patterns = [
+        r"college name is ([a-zA-Z ]+)",
+        r"university is ([a-zA-Z ]+)",
+        r"from ([a-zA-Z ]+ university)"
+    ]
+    for pattern in institution_patterns:
+        match = re.search(pattern, full_text)
+        if match:
+            user_data['institution'] = match.group(1).strip().title()
+            break
 
-    # Extract Institution / College
-    inst_match = re.search(r'(college|university|institution)[\s\w]*?is\s+([a-z\s]+)', full_text)
-    if inst_match:
-        user_data["institution"] = inst_match.group(2).strip().title()
-    else:
-        inst_name_match = re.search(r'(?:at|from)\s+([a-z\s]+university|college)', full_text)
-        if inst_name_match:
-            user_data["institution"] = inst_name_match.group(1).strip().title()
-
-    # Extract Domain (e.g., web developer, ML, etc.)
-    domain_match = re.search(r'(domain|field|position|apply for|internship in)\s+(?:is\s+)?([a-z\s]+)', full_text)
+    # Extract domain/role
+    domain_match = re.search(r"apply.*for.*?([a-zA-Z ]+?) (intern|role|interview)", full_text)
     if domain_match:
-        user_data["domain"] = domain_match.group(2).strip().title()
-    else:
-        # Fallback: look for common fields
-        common_domains = ['web development', 'machine learning', 'data science', 'ui/ux', 'android']
-        for domain in common_domains:
-            if domain in full_text:
-                user_data["domain"] = domain.title()
-                break
+        user_data['domain'] = domain_match.group(1).strip().title()
 
-    # Extract Duration (e.g., "2 months", "8 weeks")
-    duration_match = re.search(r'(duration|internship duration|for)\s+(?:is\s+)?(\d+\s*(weeks?|months?))', full_text)
-    if duration_match:
-        user_data["duration"] = duration_match.group(2)
+    # Extract duration (e.g., second year, 6th semester)
+    year_match = re.search(r"(first|second|third|fourth) year", full_text)
+    semester_match = re.search(r"(\d+)[a-z]{2} semester", full_text)
+    if year_match:
+        user_data['duration'] = year_match.group(1).title() + " Year"
+    elif semester_match:
+        user_data['duration'] = semester_match.group(1) + "th Semester"
 
-    # Extract Start Date
-    start_date_match = re.search(r'(start|starting|start date|from)\s+(next\s+term|month|week|[a-z]+\s+\d{1,2})', full_text)
-    if start_date_match:
-        user_data["start_date"] = start_date_match.group(2).strip()
+    # Extract start date
+    if "next term" in full_text:
+        user_data['start_date'] = "Next Term"
+    elif "start from" in full_text:
+        start_match = re.search(r"start from ([a-zA-Z0-9 ]+)", full_text)
+        if start_match:
+            user_data['start_date'] = start_match.group(1).strip().title()
 
     return user_data
 
@@ -995,53 +1030,62 @@ def background_tasks(user_data):
         phone_number = user_data['phone']
 
         message_body = f"Hi {user_data['name']}, we have received your internship application at Infolabz. Our team will contact you shortly."
+        try:
+            twilio_client.messages.create(
+                body=message_body,
+                from_=os.getenv("TWILIO_PHONE_NUMBER"),
+                to=phone_number
+            )
 
-        twilio_client.messages.create(
-            body=message_body,
-            from_=os.getenv("TWILIO_PHONE_NUMBER"),
-            to=phone_number
-        )
+            whatsapp_body = f"""Hello {user_data['name']},
 
-        whatsapp_body = f"""Hello {user_data['name']},
+                                            ✅ You have successfully registered/enquired for the internship at Infolabz with the following details:
 
-                                        ✅ You have successfully registered/enquired for the internship at Infolabz with the following details:
+                                            📞 Phone: {user_data['phone']}
+                                            📧 Email: {user_data['email']}
+                                            🏫 Institution: {user_data['institution']}
+                                            🎯 Domain: {user_data['domain']}
+                                            ⏳ Duration: {user_data['duration']}
+                                            📅 Preferred Start Date: {user_data['start_date']}
 
-                                        📞 Phone: {user_data['phone']}
-                                        📧 Email: {user_data['email']}
-                                        🏫 Institution: {user_data['institution']}
-                                        🎯 Domain: {user_data['domain']}
-                                        ⏳ Duration: {user_data['duration']}
-                                        📅 Preferred Start Date: {user_data['start_date']}
+                                            One of our team members will contact you shortly regarding the next steps.
 
-                                        One of our team members will contact you shortly regarding the next steps.
+                                            Regards,  
+                                            Infolabz Team"""
+        except Exception as e:
+            print("[+] Skipped the SMS Block due to the following error:",e)
 
-                                        Regards,  
-                                        Infolabz Team"""
+        try:
 
-        twilio_client.messages.create(
-            body=whatsapp_body,
-            from_=os.getenv("TWILIO_WHATSAPP_FROM"),
-            to=f"whatsapp:{phone_number}"
-        )
-        print("[+] Twilio messages sent")
+            twilio_client.messages.create(
+                body=whatsapp_body,
+                from_=os.getenv("TWILIO_WHATSAPP_FROM"),
+                to=f"whatsapp:{phone_number}"
+            )
+            print("[+] Twilio messages sent")
+        except Exception as e:
+            print("[+] Skipped the wp part as got the following Error :",e)
 
+        try:
         # Step 3: Send Email
-        email = EmailMessage()
-        email["From"] = os.getenv("EMAIL_USER")
-        email["To"] = user_data["email"]
-        email["Subject"] = "Internship Application Received - Infolabz"
-        email.set_content(whatsapp_body)
+            email = EmailMessage()
+            email["From"] = os.getenv("EMAIL_USER")
+            email["To"] = user_data["email"]
+            email["Subject"] = "Internship Application Received - Infolabz"
+            email.set_content(whatsapp_body)
 
-        with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
-            server.starttls()
-            server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
-            server.send_message(email)
-        print("[+] Email sent")
+            with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
+                server.starttls()
+                server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+                server.send_message(email)
+            print("[+] Email sent")
+        except Exception as e:
+            print("[+] Email Skipped due to the following error: ",e)
 
         # Step 4: Store in MongoDB
         mongo_client = MongoClient(os.getenv("MONGO_URI"))
         db = mongo_client["infolabz"]
-        db["conversations"].insert_one(user_data)
+        db["conversations"].insert_one(user_data.get('message', ''))
         print("[+] MongoDB insert complete")
 
     except Exception as e:
