@@ -565,16 +565,19 @@ async def index_page():
 @app.api_route("/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(request: Request):
     # Get caller's number from the request
+    caller_number = request
+    
+    # Log or use this number
+    print(f"Incoming call from: {caller_number}")
+
     try:
-        caller_number = request.form['From']
-        print(f"Incoming call from: {caller_number}")
-    except:
-        caller_number = request.form
-        print(f"Incoming call from: {caller_number}")
+        callingnumber = request.form["From"]
+        print("[!] Able to get the Data",callingnumber)
+    except Exception as e:
+        print("[!] Not able to get the Data",e)
 
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
-    response.record()
     # <Say> punctuation to improve text-to-speech flow
     response.say("Please wait while we connect your call to the A. I. voice assistant, powered by infolabz",language='en-IN')
     response.pause(length=1)
@@ -1078,7 +1081,7 @@ def background_tasks(user_data):
         # Step 4: Store in MongoDB
         mongo_client = MongoClient(os.getenv("MONGO_URI"))
         db = mongo_client["infolabz"]
-        db["conversations"].insert_one(user_data.get('message', ''))
+        db["conversations"].insert_one(user_data)
         print("[+] MongoDB insert complete")
 
     except Exception as e:
