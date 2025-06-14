@@ -569,10 +569,13 @@ async def index_page():
 async def handle_incoming_call(request: Request):
     # Get caller's number from the request
     try:
-        caller_number = request.form['From']
+        form = await request.form()
+        caller_number = form.get('From')
         print(f"Incoming call from: {caller_number}")
+        caller_number1 = form['From']
+        print(f"Incoming call from: {caller_number1}")
     except:
-        caller_number = request.form
+        caller_number = request.form()
         print(f"Incoming call from: {caller_number}")
 
     """Handle incoming call and return TwiML response to connect to Media Stream."""
@@ -645,15 +648,15 @@ async def handle_media_stream(websocket: WebSocket):
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
-                    print("All responses: ",response)
-                    if response['type'] in LOG_EVENT_TYPES:
-                        print(f"Received event: {response['type']}", response)
+                    # print("All responses: ",response)
+                    # if response['type'] in LOG_EVENT_TYPES:
+                        # print(f"Received event: {response['type']}", response)
                     if response.get('type') == 'conversation.item.input_audio_transcription.completed':
-                        print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
+                        # print("[USER SAID IN RESPONSE TEXT AFTER COMPLETION OF AUDIO]:", response)
                         user_text = response['transcript']
                         print("[USER SAID]:", user_text)
                         conversation_transcript += f"[USER SAID]: {user_text}\n"
-                        # await process_user_conversation(user_text, final=False)
+                        await process_user_conversation(user_text, final=False)
                     # if response.get('type') == 'conversation.item.retrived':
                     #     user_text = response['item']['content'][0]['transcript']
                     #     print("[USER SAID IN RESPONSE]:", response)
@@ -664,13 +667,12 @@ async def handle_media_stream(websocket: WebSocket):
                         print("[BOT SAID WORD BY WORD]:", bot_text)
                     try:
                         if response.get('type') == 'response.done':
-                            print("Conversation finished. Processing user data...")
                             print("Response Done: ",response['response']['output'][0]['content'][0]['transcript'])
                             bot_text2 = response['response']['output'][0]['content'][0]['transcript']
                             print("[BOT SAID]:", bot_text2)
                             print("Conversation finished. Processing user data...")
-                            # await process_user_conversation(conversation_transcript, final=True)
-                            process_user_conversation(conversation_transcript)
+                            await process_user_conversation(conversation_transcript, final=True)
+                            # process_user_conversation(conversation_transcript)
                     except Exception as e:
                         print("Respons.Done error on line 560:",e)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
@@ -783,7 +785,10 @@ async def send_initial_conversation_item(openai_ws):
 #         "timestamp": datetime.utcnow()
 #     }
 
-def extract_user_info_llm(convo_text, existing_data=None):
+import openai
+import json
+
+async def extract_user_info_llm(convo_text, existing_data=None):
     if existing_data is None:
         existing_data = {
             'name': 'Not Provided',
@@ -797,9 +802,10 @@ def extract_user_info_llm(convo_text, existing_data=None):
         }
 
     prompt = f"""
-You are an intelligent assistant. Extract the following fields from this message only. Return only the values that are explicitly mentioned (i.e., do not return "Not Provided" for missing fields).
+Extract the following fields from this message only. Return only the fields that are clearly mentioned.
+If a field is not mentioned, omit it entirely — do not write "Not Provided".
 
-Fields to extract:
+Fields:
 - Full Name
 - Email
 - Phone Number
@@ -810,30 +816,30 @@ Fields to extract:
 
 Message:
 \"\"\"{convo_text}\"\"\"
-
-Return only a JSON with the fields that have actual values mentioned. Ignore missing fields.
+Return JSON only.
 """
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2
-    )
-    content = response.choices[0].message.content.strip()
-
     try:
-        new_data = json.loads(content)
-    except:
-        print("[!] Could not parse partial data. Raw:", content)
+        response = await openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
+        result_text = response.choices[0].message.content.strip()
+        print("[GPT Response From the LLM FUNCTION]", result_text)
+        new_data = json.loads(result_text)
+    except Exception as e:
+        print("⚠️ GPT extraction error:", e)
         new_data = {}
 
-    # Merge non-"Not Provided" values from new_data into existing_data
+    # Merge non-empty values
     for key in existing_data:
         if key in new_data and new_data[key] and new_data[key] != "Not Provided":
             existing_data[key] = new_data[key]
 
-    # Accumulate full conversation
-    existing_data['message'] += f"\n{convo_text}"
+    # Accumulate raw transcript
+    existing_data["message"] += f"\n{convo_text}"
+    print("Existing Data from llm function: ",existing_data)
 
     return existing_data
 
@@ -1024,72 +1030,56 @@ def background_tasks(user_data):
         print("[-] Background task error:", str(e))
 
 
-def final_validation_with_gpt(full_data):
+async def final_validation_with_gpt(full_data):
     prompt = f"""
-You are a smart assistant reviewing the collected information from a user during a voice call. Validate the extracted details for correctness and spelling. If something looks incomplete or incorrect, fix it. Final response should be proper and clean JSON.
+Review this structured data for completeness and correct spelling. Return clean JSON:
 
-Here is the data:
 {json.dumps(full_data, indent=2)}
-
-Ensure:
-- Names and institutions are properly capitalized and spelled.
-- Email and phone formats are correct.
-- No field is labeled "Not Provided" unless truly missing.
-
-Return only valid JSON with clean, corrected data.
 """
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-
-    content = response.choices[0].message.content.strip()
     try:
-        validated_data = json.loads(content)
-    except:
-        print("[!] Could not parse final validated JSON. Raw:", content)
-        validated_data = full_data  # fallback to original
-
-    return validated_data
+        response = await openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
+        )
+        validated_json = response.choices[0].message.content.strip()
+        return json.loads(validated_json)
+    except Exception as e:
+        print("[!] Final validation error:", e)
+        return full_data
 
 
 # The working process user conversation
-def process_user_conversation(convo_text):
-    # user_data = extract_user_info(convo_text)
-    user_data = extract_user_info_llm(convo_text)
-    threading.Thread(target=background_tasks, args=(user_data,)).start()
-    return f"Thanks {user_data['name']}! Your application is being processed."
+# def process_user_conversation(convo_text):
+#     # user_data = extract_user_info(convo_text)
+#     user_data = extract_user_info_llm(convo_text)
+#     threading.Thread(target=background_tasks, args=(user_data,)).start()
+#     return f"Thanks {user_data['name']}! Your application is being processed."
 
 
-# async def process_user_conversation(convo_text, final=False):
-#     global global_user_data
+async def process_user_conversation(convo_text, final=False):
+    global global_user_data
 
-#     # Initialize on first call
-#     if global_user_data is None:
-#         global_user_data = {
-#             'name': 'Not Provided',
-#             'email': 'Not Provided',
-#             'phone': 'Not Provided',
-#             'institution': 'Not Provided',
-#             'domain': 'Not Provided',
-#             'duration': 'Not Provided',
-#             'start_date': 'Not Provided',
-#             'message': ''
-#         }
+    if global_user_data is None:
+        global_user_data = {
+            'name': 'Not Provided',
+            'email': 'Not Provided',
+            'phone': 'Not Provided',
+            'institution': 'Not Provided',
+            'domain': 'Not Provided',
+            'duration': 'Not Provided',
+            'start_date': 'Not Provided',
+            'message': ''
+        }
 
-#     # Update with new partial info
-#     global_user_data = await extract_user_info_llm(convo_text, existing_data=global_user_data)
+    global_user_data = await extract_user_info_llm(convo_text, existing_data=global_user_data)
 
-#     # Final call after response.done
-#     if final:
-#         validated_data = final_validation_with_gpt(global_user_data)
-#         threading.Thread(target=background_tasks, args=(validated_data,)).start()
-#         global_user_data = None  # Reset for next caller
-#         return f"Thanks {validated_data['name']}! Your application is being processed."
-
-#     return None
+    if final:
+        validated_data = await final_validation_with_gpt(global_user_data)
+        threading.Thread(target=background_tasks, args=(validated_data,)).start()
+        global_user_data = None
+        return f"Thanks {validated_data['name']}! Your application is being processed."
 
 
 async def initialize_session(openai_ws):
