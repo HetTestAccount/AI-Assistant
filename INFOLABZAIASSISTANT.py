@@ -577,7 +577,7 @@ async def handle_incoming_call(request: Request):
 
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
-    response.record()
+    # response.record()
     # <Say> punctuation to improve text-to-speech flow
     response.say("Please wait while we connect your call to the A. I. voice assistant, powered by infolabz",language='en-IN')
     response.pause(length=1)
@@ -610,6 +610,7 @@ async def handle_media_stream(websocket: WebSocket):
         mark_queue = []
         response_start_timestamp_twilio = None
         conversation_transcript = ""
+        
         
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
@@ -652,7 +653,7 @@ async def handle_media_stream(websocket: WebSocket):
                         user_text = response['transcript']
                         print("[USER SAID]:", user_text)
                         conversation_transcript += f"[USER SAID]: {user_text}\n"
-                        process_user_conversation(user_text, final=False)
+                        # await process_user_conversation(user_text, final=False)
                     # if response.get('type') == 'conversation.item.retrived':
                     #     user_text = response['item']['content'][0]['transcript']
                     #     print("[USER SAID IN RESPONSE]:", response)
@@ -668,8 +669,8 @@ async def handle_media_stream(websocket: WebSocket):
                             bot_text2 = response['response']['output'][0]['content'][0]['transcript']
                             print("[BOT SAID]:", bot_text2)
                             print("Conversation finished. Processing user data...")
-                            process_user_conversation(conversation_transcript, final=True)
-                            # process_user_conversation(conversation_transcript)
+                            # await process_user_conversation(conversation_transcript, final=True)
+                            process_user_conversation(conversation_transcript)
                     except Exception as e:
                         print("Respons.Done error on line 560:",e)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
@@ -781,64 +782,6 @@ async def send_initial_conversation_item(openai_ws):
 #         "raw_text": messages,
 #         "timestamp": datetime.utcnow()
 #     }
-
-digit_words = {
-    "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
-    "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
-    "plus": "+"
-}
-
-def spoken_to_digits(text):
-    tokens = text.lower().split()
-    digits = []
-
-    for token in tokens:
-        if token in digit_words:
-            digits.append(digit_words[token])
-        elif token.isdigit():
-            digits.append(token)
-        elif re.fullmatch(r"\+?\d+", token):
-            digits.append(token)
-
-    return ''.join(digits)
-
-def extract_phone_number(conversation_lines):
-    phone_cue_keywords = ["contact", "mobile", "phone", "reach", "call", "number", "+"]
-
-    candidates = []
-    for line in conversation_lines:
-        if any(keyword in line.lower() for keyword in phone_cue_keywords) or re.search(r'\d', line):
-            digits = spoken_to_digits(line)
-            if len(digits) >= 10:
-                candidates.append(digits)
-
-    if candidates:
-        phone_number = max(candidates, key=len)
-        if not phone_number.startswith('+') and len(phone_number) >= 10:
-            phone_number = '+' + phone_number
-        return phone_number
-    return None
-
-def extract_email_address(conversation_lines):
-    email_patterns = ["email", "mail", "gmail", "@", "dot com", "at the rate"]
-
-    for line in conversation_lines:
-        line_lower = line.lower()
-        if any(kw in line_lower for kw in email_patterns):
-            clean_line = (
-                line_lower.replace(" at the rate ", "@")
-                .replace(" at ", "@")
-                .replace(" dot ", ".")
-                .replace(" dash ", "-")
-                .replace(" underscore ", "_")
-                .replace(" underscore", "_")
-                .replace(" ", "")
-            )
-            clean_line = re.sub(r'(?<=\w)-(?=\w)', '', clean_line)
-            match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', clean_line)
-            if match:
-                return match.group()
-    return None
 
 def extract_user_info_llm(convo_text, existing_data=None):
     if existing_data is None:
@@ -1113,40 +1056,40 @@ Return only valid JSON with clean, corrected data.
 
 
 # The working process user conversation
-# def process_user_conversation(convo_text):
-#     # user_data = extract_user_info(convo_text)
-#     user_data = extract_user_info_llm(convo_text)
-#     threading.Thread(target=background_tasks, args=(user_data,)).start()
-#     return f"Thanks {user_data['name']}! Your application is being processed."
+def process_user_conversation(convo_text):
+    # user_data = extract_user_info(convo_text)
+    user_data = extract_user_info_llm(convo_text)
+    threading.Thread(target=background_tasks, args=(user_data,)).start()
+    return f"Thanks {user_data['name']}! Your application is being processed."
 
 
-def process_user_conversation(convo_text, final=False):
-    global global_user_data
+# async def process_user_conversation(convo_text, final=False):
+#     global global_user_data
 
-    # Initialize on first call
-    if global_user_data is None:
-        global_user_data = {
-            'name': 'Not Provided',
-            'email': 'Not Provided',
-            'phone': 'Not Provided',
-            'institution': 'Not Provided',
-            'domain': 'Not Provided',
-            'duration': 'Not Provided',
-            'start_date': 'Not Provided',
-            'message': ''
-        }
+#     # Initialize on first call
+#     if global_user_data is None:
+#         global_user_data = {
+#             'name': 'Not Provided',
+#             'email': 'Not Provided',
+#             'phone': 'Not Provided',
+#             'institution': 'Not Provided',
+#             'domain': 'Not Provided',
+#             'duration': 'Not Provided',
+#             'start_date': 'Not Provided',
+#             'message': ''
+#         }
 
-    # Update with new partial info
-    global_user_data = extract_user_info_llm(convo_text, existing_data=global_user_data)
+#     # Update with new partial info
+#     global_user_data = await extract_user_info_llm(convo_text, existing_data=global_user_data)
 
-    # Final call after response.done
-    if final:
-        validated_data = final_validation_with_gpt(global_user_data)
-        threading.Thread(target=background_tasks, args=(validated_data,)).start()
-        global_user_data = None  # Reset for next caller
-        return f"Thanks {validated_data['name']}! Your application is being processed."
+#     # Final call after response.done
+#     if final:
+#         validated_data = final_validation_with_gpt(global_user_data)
+#         threading.Thread(target=background_tasks, args=(validated_data,)).start()
+#         global_user_data = None  # Reset for next caller
+#         return f"Thanks {validated_data['name']}! Your application is being processed."
 
-    return None  # Intermediate call, no need to respond yet
+#     return None
 
 
 async def initialize_session(openai_ws):
