@@ -405,6 +405,7 @@ from email.mime.text import MIMEText
 from email.message import EmailMessage
 from pymongo import MongoClient
 from datetime import datetime
+import openai
 
 load_dotenv()
 
@@ -416,6 +417,8 @@ PORT = int(os.getenv('PORT', 5050))
 current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
+
+gloabl_user_data = None
 
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
@@ -649,6 +652,7 @@ async def handle_media_stream(websocket: WebSocket):
                         user_text = response['transcript']
                         print("[USER SAID]:", user_text)
                         conversation_transcript += f"[USER SAID]: {user_text}\n"
+                        process_user_conversation(user_text, final=False)
                     # if response.get('type') == 'conversation.item.retrived':
                     #     user_text = response['item']['content'][0]['transcript']
                     #     print("[USER SAID IN RESPONSE]:", response)
@@ -663,7 +667,9 @@ async def handle_media_stream(websocket: WebSocket):
                             print("Response Done: ",response['response']['output'][0]['content'][0]['transcript'])
                             bot_text2 = response['response']['output'][0]['content'][0]['transcript']
                             print("[BOT SAID]:", bot_text2)
-                            process_user_conversation(conversation_transcript)
+                            print("Conversation finished. Processing user data...")
+                            process_user_conversation(conversation_transcript, final=True)
+                            # process_user_conversation(conversation_transcript)
                     except Exception as e:
                         print("Respons.Done error on line 560:",e)
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
@@ -834,69 +840,59 @@ def extract_email_address(conversation_lines):
                 return match.group()
     return None
 
-def extract_user_info(user_messages):
-    user_data = {
-        'name': 'Not Provided',
-        'email': 'Not Provided',
-        'phone': 'Not Provided',
-        'institution': 'Not Provided',
-        'domain': 'Not Provided',
-        'duration': 'Not Provided',
-        'start_date': 'Not Provided',
-        'message': ' '.join(user_messages)
-    }
+def extract_user_info_llm(convo_text, existing_data=None):
+    if existing_data is None:
+        existing_data = {
+            'name': 'Not Provided',
+            'email': 'Not Provided',
+            'phone': 'Not Provided',
+            'institution': 'Not Provided',
+            'domain': 'Not Provided',
+            'duration': 'Not Provided',
+            'start_date': 'Not Provided',
+            'message': ''
+        }
 
-    full_text = ' '.join(user_messages).lower()
+    prompt = f"""
+You are an intelligent assistant. Extract the following fields from this message only. Return only the values that are explicitly mentioned (i.e., do not return "Not Provided" for missing fields).
 
-    user_data['email'] = extract_email_address(full_text) or "Not Provided"
-    user_data['phone'] = extract_phone_number(full_text) or "Not Provided"
+Fields to extract:
+- Full Name
+- Email
+- Phone Number
+- Educational Institution
+- Preferred Internship Domain
+- Current Year or Semester
+- Preferred Start Date
 
-    # Extract name
-    name_patterns = [
-        r"my name is ([a-zA-Z ]+)",
-        r"i'?m ([a-zA-Z ]+)",
-        r"this is ([a-zA-Z ]+)"
-    ]
-    for pattern in name_patterns:
-        match = re.search(pattern, full_text)
-        if match:
-            user_data['name'] = match.group(1).strip().title()
-            break
+Message:
+\"\"\"{convo_text}\"\"\"
 
-    # Extract institution
-    institution_patterns = [
-        r"college name is ([a-zA-Z ]+)",
-        r"university is ([a-zA-Z ]+)",
-        r"from ([a-zA-Z ]+ university)"
-    ]
-    for pattern in institution_patterns:
-        match = re.search(pattern, full_text)
-        if match:
-            user_data['institution'] = match.group(1).strip().title()
-            break
+Return only a JSON with the fields that have actual values mentioned. Ignore missing fields.
+"""
 
-    # Extract domain/role
-    domain_match = re.search(r"apply.*for.*?([a-zA-Z ]+?) (intern|role|interview)", full_text)
-    if domain_match:
-        user_data['domain'] = domain_match.group(1).strip().title()
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
+    )
+    content = response.choices[0].message.content.strip()
 
-    # Extract duration (e.g., second year, 6th semester)
-    year_match = re.search(r"(first|second|third|fourth) year", full_text)
-    semester_match = re.search(r"(\d+)[a-z]{2} semester", full_text)
-    if year_match:
-        user_data['duration'] = year_match.group(1).title() + " Year"
-    elif semester_match:
-        user_data['duration'] = semester_match.group(1) + "th Semester"
+    try:
+        new_data = json.loads(content)
+    except:
+        print("[!] Could not parse partial data. Raw:", content)
+        new_data = {}
 
-    # Extract start date
-    if "next term" in full_text:
-        user_data['start_date'] = "Next Term"
-    elif "start from" in full_text:
-        start_match = re.search(r"start from ([a-zA-Z0-9 ]+)", full_text)
-        if start_match:
-            user_data['start_date'] = start_match.group(1).strip().title()
+    # Merge non-"Not Provided" values from new_data into existing_data
+    for key in existing_data:
+        if key in new_data and new_data[key] and new_data[key] != "Not Provided":
+            existing_data[key] = new_data[key]
 
-    return user_data
+    # Accumulate full conversation
+    existing_data['message'] += f"\n{convo_text}"
+
+    return existing_data
 
 # def background_tasks(user_data):
 #     try:
@@ -1084,10 +1080,74 @@ def background_tasks(user_data):
     except Exception as e:
         print("[-] Background task error:", str(e))
 
-def process_user_conversation(convo_text):
-    user_data = extract_user_info(convo_text)
-    threading.Thread(target=background_tasks, args=(user_data,)).start()
-    return f"Thanks {user_data['name']}! Your application is being processed."
+
+def final_validation_with_gpt(full_data):
+    prompt = f"""
+You are a smart assistant reviewing the collected information from a user during a voice call. Validate the extracted details for correctness and spelling. If something looks incomplete or incorrect, fix it. Final response should be proper and clean JSON.
+
+Here is the data:
+{json.dumps(full_data, indent=2)}
+
+Ensure:
+- Names and institutions are properly capitalized and spelled.
+- Email and phone formats are correct.
+- No field is labeled "Not Provided" unless truly missing.
+
+Return only valid JSON with clean, corrected data.
+"""
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+
+    content = response.choices[0].message.content.strip()
+    try:
+        validated_data = json.loads(content)
+    except:
+        print("[!] Could not parse final validated JSON. Raw:", content)
+        validated_data = full_data  # fallback to original
+
+    return validated_data
+
+
+# The working process user conversation
+# def process_user_conversation(convo_text):
+#     # user_data = extract_user_info(convo_text)
+#     user_data = extract_user_info_llm(convo_text)
+#     threading.Thread(target=background_tasks, args=(user_data,)).start()
+#     return f"Thanks {user_data['name']}! Your application is being processed."
+
+
+def process_user_conversation(convo_text, final=False):
+    global global_user_data
+
+    # Initialize on first call
+    if global_user_data is None:
+        global_user_data = {
+            'name': 'Not Provided',
+            'email': 'Not Provided',
+            'phone': 'Not Provided',
+            'institution': 'Not Provided',
+            'domain': 'Not Provided',
+            'duration': 'Not Provided',
+            'start_date': 'Not Provided',
+            'message': ''
+        }
+
+    # Update with new partial info
+    global_user_data = extract_user_info_llm(convo_text, existing_data=global_user_data)
+
+    # Final call after response.done
+    if final:
+        validated_data = final_validation_with_gpt(global_user_data)
+        threading.Thread(target=background_tasks, args=(validated_data,)).start()
+        global_user_data = None  # Reset for next caller
+        return f"Thanks {validated_data['name']}! Your application is being processed."
+
+    return None  # Intermediate call, no need to respond yet
+
 
 async def initialize_session(openai_ws):
     """Control initial session with OpenAI."""
