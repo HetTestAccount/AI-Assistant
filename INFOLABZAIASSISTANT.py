@@ -419,6 +419,7 @@ current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
 
 gloabl_user_data = None
+caller_number_store = None
 
 SYSTEM_MESSAGE = f"""
 I am infolabz Assistant, the virtual guide for INFOLABZ I.T. SERVICES PVT. LTD.'s AICTE-approved internship program.
@@ -567,10 +568,12 @@ async def index_page():
 
 @app.api_route("/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(request: Request):
+    global caller_number_store
     # Get caller's number from the request
     try:
         form = await request.form()
         caller_number = form.get('From')
+        caller_number_store = caller_number
         print(f"Incoming call from: {caller_number}")
         caller_number1 = form['From']
         print(f"Incoming call from: {caller_number1}")
@@ -934,6 +937,7 @@ Return JSON only.
 #         print("[-] Error in background task:", str(e))
 
 def background_tasks(user_data):
+    global caller_number_store
     try:
         required_fields = ['name', 'email', 'phone', 'institution', 'domain', 'duration', 'start_date']
         for field in required_fields:
@@ -965,9 +969,10 @@ def background_tasks(user_data):
 
         # Step 2: Send SMS & WhatsApp via Twilio
         twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
-        phone_number = user_data['phone']
+        phone_number = caller_number_store
 
-        message_body = f"Hi {user_data['name']}, we have received your internship application at Infolabz. Our team will contact you shortly."
+        # message_body = f"Hi {user_data['name']}, we have received your internship application at Infolabz. Our team will contact you shortly."
+        message_body = f"Hi 👋, we have received your internship application 🗒️ at Infolabz. Our team will contact you shortly."
         try:
             twilio_client.messages.create(
                 body=message_body,
