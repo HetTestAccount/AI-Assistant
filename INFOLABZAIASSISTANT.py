@@ -575,13 +575,13 @@ async def handle_incoming_call(request: Request):
         caller_number = form.get('From')
         caller_number_store = caller_number
         print(f"Incoming call from: {caller_number}")
-        twilio_client1 = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+        # twilio_client1 = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
 
-        twilio_client1.messages.create(
-                body=f"Calling from the following number: {caller_number_store}",
-                from_=os.getenv("TWILIO_PHONE_NUMBER"),
-                to="+919375607050"
-            )
+        # twilio_client1.messages.create(
+        #         body=f"Calling from the following number: {caller_number_store}",
+        #         from_=os.getenv("TWILIO_PHONE_NUMBER"),
+        #         to="+919375607050"
+        #     )
     except:
         caller_number = request.form()
         print(f"Incoming call from: {caller_number}")
