@@ -652,8 +652,8 @@ async def handle_media_stream(websocket: WebSocket):
 
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
-            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, conversation_transcript
             global gloabl_user_data
+            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, conversation_transcript
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
@@ -665,7 +665,7 @@ async def handle_media_stream(websocket: WebSocket):
                         user_text = response['transcript']
                         print("[USER SAID]:", user_text)
                         conversation_transcript += f"[USER SAID]: {user_text}\n"
-                        await process_user_conversation(user_text, final=False)
+                        asyncio.create_task(process_user_conversation(user_text, final=False))
                     # if response.get('type') == 'conversation.item.retrived':
                     #     user_text = response['item']['content'][0]['transcript']
                     #     print("[USER SAID IN RESPONSE]:", response)
@@ -680,7 +680,7 @@ async def handle_media_stream(websocket: WebSocket):
                             bot_text2 = response['response']['output'][0]['content'][0]['transcript']
                             print("[BOT SAID]:", bot_text2)
                             print("Conversation finished. Processing user data...")
-                            await process_user_conversation(conversation_transcript, final=True)
+                            asyncio.create_task(process_user_conversation(conversation_transcript, final=True))
                             # process_user_conversation(conversation_transcript)
                     except Exception as e:
                         print("Respons.Done error on line 560:",e)
