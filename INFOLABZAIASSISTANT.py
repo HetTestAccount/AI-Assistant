@@ -575,8 +575,13 @@ async def handle_incoming_call(request: Request):
         caller_number = form.get('From')
         caller_number_store = caller_number
         print(f"Incoming call from: {caller_number}")
-        caller_number1 = form['From']
-        print(f"Incoming call from: {caller_number1}")
+        twilio_client1 = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+
+        twilio_client1.messages.create(
+                body=f"Calling from the following number: {caller_number_store}",
+                from_=os.getenv("TWILIO_PHONE_NUMBER"),
+                to="+919375607050"
+            )
     except:
         caller_number = request.form()
         print(f"Incoming call from: {caller_number}")
@@ -648,6 +653,7 @@ async def handle_media_stream(websocket: WebSocket):
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
             nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, conversation_transcript
+            global gloabl_user_data
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
