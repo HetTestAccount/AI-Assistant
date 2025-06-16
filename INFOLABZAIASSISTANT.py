@@ -418,7 +418,7 @@ current_datetime = datetime.now()
 current_date = current_datetime.strftime("%d-%m-%Y")
 current_time = current_datetime.strftime("%I:%M %p")
 
-gloabl_user_data = None
+global_user_data = None
 caller_number_store = None
 
 SYSTEM_MESSAGE = f"""
@@ -568,7 +568,7 @@ async def index_page():
 
 @app.api_route("/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(request: Request):
-    global caller_number_store,gloabl_user_data
+    global caller_number_store,global_user_data
     # Get caller's number from the request
     try:
         form = await request.form()
@@ -621,11 +621,11 @@ async def handle_media_stream(websocket: WebSocket):
         mark_queue = []
         response_start_timestamp_twilio = None
         conversation_transcript = ""
-        global gloabl_user_data
+        global global_user_data
         
         
         async def receive_from_twilio():
-            global gloabl_user_data
+            global global_user_data
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
             nonlocal stream_sid, latest_media_timestamp
             try:
@@ -654,7 +654,7 @@ async def handle_media_stream(websocket: WebSocket):
 
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
-            global gloabl_user_data
+            global global_user_data
             nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, conversation_transcript
             try:
                 async for openai_message in openai_ws:
@@ -718,7 +718,7 @@ async def handle_media_stream(websocket: WebSocket):
                 print(f"Error in send_to_twilio: {e}")
 
         async def handle_speech_started_event():
-            global gloabl_user_data
+            global global_user_data
             """Handle interruption when the caller's speech starts."""
             nonlocal response_start_timestamp_twilio, last_assistant_item
             print("Handling speech started event.")
@@ -749,7 +749,7 @@ async def handle_media_stream(websocket: WebSocket):
                 response_start_timestamp_twilio = None
 
         async def send_mark(connection, stream_sid):
-            global gloabl_user_data
+            global global_user_data
             if stream_sid:
                 mark_event = {
                     "event": "mark",
@@ -762,7 +762,7 @@ async def handle_media_stream(websocket: WebSocket):
         await asyncio.gather(receive_from_twilio(), send_to_twilio())
 
 async def send_initial_conversation_item(openai_ws):
-    global gloabl_user_data
+    global global_user_data
     """Send initial conversation item if AI talks first."""
     initial_conversation_item = {
         "type": "conversation.item.create",
@@ -948,7 +948,7 @@ Return JSON only.
 #         print("[-] Error in background task:", str(e))
 
 def background_tasks(user_data):
-    global caller_number_store,gloabl_user_data
+    global caller_number_store,global_user_data
     try:
         required_fields = ['name', 'email', 'phone', 'institution', 'domain', 'duration', 'start_date']
         for field in required_fields:
@@ -1047,7 +1047,7 @@ def background_tasks(user_data):
 
 
 async def final_validation_with_gpt(full_data):
-    global gloabl_user_data
+    global global_user_data
     prompt = f"""
 Review this structured data for completeness and correct spelling. Return clean JSON:
 
