@@ -482,6 +482,11 @@ Behavior Guidelines:
 4. Be encouraging but realistic about expectations
 5. For technical queries, reference our actual tech stack
 6. Maintain professional yet student-friendly tone
+
+Language Handling Guidelines:
+- Always respond in English unless user requests a different language
+- Switch to Hindi, Gujarati, Tamil, Telugu, Marathi, or Bengali only upon explicit user request
+- Never assume or auto-detect language from speech
 """
 
 # SYSTEM_MESSAGE = f"""
@@ -574,7 +579,7 @@ async def handle_incoming_call(request: Request):
         form = await request.form()
         caller_number = form.get('From')
         caller_number_store = caller_number
-        print(f"Incoming call from: {caller_number}")
+        print(f"Incoming call from: {caller_number_store}")
         # twilio_client1 = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
 
         # twilio_client1.messages.create(
@@ -800,7 +805,10 @@ async def send_initial_conversation_item(openai_ws):
 #     }
 
 import openai
+from openai import AsyncOpenAI
 import json
+
+openai2 = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 async def extract_user_info_llm(convo_text, existing_data=None):
     if existing_data is None:
@@ -834,7 +842,7 @@ Return JSON only.
 """
 
     try:
-        response = await openai.chat.completions.create(
+        response = await openai2.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2
@@ -947,8 +955,9 @@ Return JSON only.
 #     except Exception as e:
 #         print("[-] Error in background task:", str(e))
 
-def background_tasks(user_data):
-    global caller_number_store,global_user_data
+def background_tasks(user_data,caller_number_store):
+    global global_user_data
+    print("Caller Number inside the function: ",caller_number_store)
     try:
         required_fields = ['name', 'email', 'phone', 'institution', 'domain', 'duration', 'start_date']
         for field in required_fields:
@@ -984,14 +993,7 @@ def background_tasks(user_data):
 
         # message_body = f"Hi {user_data['name']}, we have received your internship application at Infolabz. Our team will contact you shortly."
         message_body = f"Hi 👋, we have received your internship application 🗒️ at Infolabz. Our team will contact you shortly."
-        try:
-            twilio_client.messages.create(
-                body=message_body,
-                from_=os.getenv("TWILIO_PHONE_NUMBER"),
-                to=phone_number
-            )
-
-            whatsapp_body = f"""Hello {user_data['name']},
+        whatsapp_body = f"""Hello {user_data['name']},
 
                                             ✅ You have successfully registered/enquired for the internship at Infolabz with the following details:
 
@@ -1006,6 +1008,12 @@ def background_tasks(user_data):
 
                                             Regards,  
                                             Infolabz Team"""
+        try:
+            twilio_client.messages.create(
+                body=message_body,
+                from_=os.getenv("TWILIO_PHONE_NUMBER"),
+                to=phone_number
+            )
         except Exception as e:
             print("[+] Skipped the SMS Block due to the following error:",e)
 
@@ -1055,7 +1063,7 @@ Review this structured data for completeness and correct spelling. Return clean 
 """
 
     try:
-        response = await openai.chat.completions.create(
+        response = await openai2.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
@@ -1094,7 +1102,7 @@ async def process_user_conversation(convo_text, final=False):
 
     if final:
         validated_data = await final_validation_with_gpt(global_user_data)
-        threading.Thread(target=background_tasks, args=(validated_data,)).start()
+        threading.Thread(target=background_tasks, args=(validated_data,caller_number_store)).start()
         global_user_data = None
         return f"Thanks {validated_data['name']}! Your application is being processed."
 
@@ -1109,7 +1117,7 @@ async def initialize_session(openai_ws):
             "output_audio_format": "g711_ulaw",
             "input_audio_transcription": {"model": "whisper-1"},
             "voice": VOICE,
-            "instructions": SYSTEM_MESSAGE +  "\nYou must detect and respond in the language the user speaks. Supported: English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali.",
+            "instructions": SYSTEM_MESSAGE,
             "modalities": ["text", "audio"],
             "temperature": 0.9,
         }
